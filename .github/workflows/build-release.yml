@@ -1,0 +1,260 @@
+name: Build ResQ Mobile Releases
+
+# Builds RELEASE builds (not debug) of the Android APK and the iOS IPA, and optionally
+# publishes them to a GitHub Release.
+#
+# Android:
+#   - Always builds a release APK.
+#   - If the ANDROID_KEYSTORE_BASE64 (+ related) secrets are configured, the release build is
+#     signed with your real upload key (android/app/build.gradle.kts reads
+#     android/key.properties automatically when present). Otherwise it falls back to debug
+#     signing, so the workflow always succeeds - the resulting APK just won't be
+#     Play-Store-uploadable until real signing secrets are added.
+#
+# iOS:
+#   - If the IOS_BUILD_CERTIFICATE_BASE64 (+ related) secrets are configured, builds a properly
+#     signed, TestFlight-ready .ipa via `flutter build ipa`.
+#   - Otherwise builds an UNSIGNED release .ipa (flutter build ios --no-codesign + manual
+#     Payload zip). Useful for sideloading/inspection, but not for TestFlight/App Store.
+#
+# See the secret names referenced below (Settings -> Secrets and variables -> Actions).
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag (example: v1.0.0)"
+        required: true
+        default: "v1.0.0"
+
+      release_name:
+        description: "Release name"
+        required: true
+        default: "ResQ Mobile Build"
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.4"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      # --- Optional real release signing -------------------------------------------------
+      # Configure these repo secrets to sign with your real upload keystore instead of the
+      # debug key (android/app/build.gradle.kts reads android/key.properties when present and
+      # falls back to debug signing otherwise):
+      #   ANDROID_KEYSTORE_BASE64   - base64 of your .jks/.keystore file
+      #                               (e.g. `base64 -w0 upload-keystore.jks`)
+      #   ANDROID_KEYSTORE_PASSWORD - keystore password
+      #   ANDROID_KEY_ALIAS         - key alias
+      #   ANDROID_KEY_PASSWORD      - key password
+      - name: Determine Android signing mode
+        id: android_signing
+        env:
+          HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$HAS_KEYSTORE" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decode Android release keystore
+        if: steps.android_signing.outputs.signed == 'true'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release-upload.keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=release-upload.keystore.jks
+          EOF
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "release/ResQ-${{ inputs.release_tag || github.ref_name }}-release.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: android-apk
+          path: release/*.apk
+          if-no-files-found: error
+
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.4"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      # --- Optional real code signing -----------------------------------------------------
+      # Configure these repo secrets to produce a properly signed, TestFlight-ready .ipa
+      # instead of an unsigned one (requires an active paid Apple Developer Program account):
+      #   IOS_BUILD_CERTIFICATE_BASE64           - base64 of your .p12 distribution certificate
+      #                                             (e.g. `base64 -w0 dist_cert.p12`)
+      #   IOS_BUILD_CERTIFICATE_PASSWORD         - password for the .p12
+      #   IOS_MOBILE_PROVISIONING_PROFILE_BASE64 - base64 of the matching .mobileprovision
+      #   IOS_KEYCHAIN_PASSWORD                  - any password to protect the temp CI keychain
+      #   IOS_EXPORT_TEAM_ID                     - your Apple Developer Team ID
+      - name: Determine signing mode
+        id: signing
+        env:
+          HAS_CERT: ${{ secrets.IOS_BUILD_CERTIFICATE_BASE64 }}
+        run: |
+          if [ -n "$HAS_CERT" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Import signing certificate & provisioning profile
+        if: steps.signing.outputs.signed == 'true'
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.IOS_BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_BUILD_CERTIFICATE_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_MOBILE_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          CERT_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Generate export options plist
+        if: steps.signing.outputs.signed == 'true'
+        env:
+          TEAM_ID: ${{ secrets.IOS_EXPORT_TEAM_ID }}
+        run: |
+          cat > ios/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>release-testing</string>
+              <key>teamID</key>
+              <string>${TEAM_ID}</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>compileBitcode</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Build signed release IPA
+        if: steps.signing.outputs.signed == 'true'
+        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+
+      - name: Prepare signed IPA artifact
+        if: steps.signing.outputs.signed == 'true'
+        run: |
+          mkdir -p release
+          cp build/ios/ipa/*.ipa \
+            "release/ResQ-${{ inputs.release_tag || github.ref_name }}.ipa"
+
+      - name: Build unsigned release IPA
+        if: steps.signing.outputs.signed == 'false'
+        run: |
+          flutter build ios --release --no-codesign
+          mkdir -p Payload release
+          cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
+          zip -r "release/ResQ-${{ inputs.release_tag || github.ref_name }}-unsigned.ipa" Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: ios-ipa
+          path: release/*.ipa
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    needs:
+      - build-android
+      - build-ios
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Android APK artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: android-apk
+          path: release
+
+      - name: Download iOS artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ios-ipa
+          path: release
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create \
+            "${{ inputs.release_tag || github.ref_name }}" \
+            release/* \
+            --repo "${{ github.repository }}" \
+            --title "${{ inputs.release_name || github.ref_name }}" \
+            --notes "ResQ Android APK + iOS IPA - ${{ inputs.release_tag || github.ref_name }}"

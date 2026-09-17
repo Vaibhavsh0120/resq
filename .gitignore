@@ -1,0 +1,41 @@
+
+# Firebase local configuration
+.firebase/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Android local configuration
+android/local.properties
+
+# Signing keys and credentials
+*.jks
+*.keystore
+key.properties
+android/key.properties
+
+# iOS signing and provisioning
+*.p12
+*.mobileprovision
+*.cer
+
+# IDE / OS files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+/.idea
+/.dart_tool
+*.iml
+.flutter-plugins-dependencies
+# Widget Preview related
+.widget_preview/
+/build

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "13971597827",
+    "project_id": "resq-106ed",
+    "storage_bucket": "resq-106ed.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:13971597827:android:28dfcba44561fffff83c36",
+        "android_client_info": {
+          "package_name": "com.vaibhav.resq"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZO6P89MG9IPjIQmI55h7Z6njpS515H8M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
