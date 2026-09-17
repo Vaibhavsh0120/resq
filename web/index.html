@@ -23,13 +23,16 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="resq">
+  <meta name="apple-mobile-web-app-title" content="ResQ">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Favicon -->
+  <!-- Favicon (switches with system light/dark mode; browsers without prefers-color-scheme
+       support fall back to the first matching/unconditional <link>, i.e. the light favicon) -->
+  <link rel="icon" type="image/png" href="favicon.png" media="(prefers-color-scheme: light)"/>
+  <link rel="icon" type="image/png" href="favicon-dark.png" media="(prefers-color-scheme: dark)"/>
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>resq</title>
+  <title>ResQ</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
