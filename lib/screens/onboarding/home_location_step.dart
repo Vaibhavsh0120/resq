@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 
 import '../../models/user_profile.dart';
+import '../../data/country_subdivisions.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/primary_button.dart';
@@ -24,10 +25,12 @@ class HomeLocationStep extends StatefulWidget {
   const HomeLocationStep({
     super.key,
     required this.initialValue,
+    required this.countryCode,
     required this.onChanged,
   });
 
   final HomeLocation initialValue;
+  final String countryCode;
   final ValueChanged<HomeLocation> onChanged;
 
   @override
@@ -45,6 +48,7 @@ class _HomeLocationStepState extends State<HomeLocationStep> {
   double? _longitude;
   bool _isLocating = false;
   String? _locationError;
+  bool _permissionPermanentlyDenied = false;
 
   static const _defaultCenter = latlong.LatLng(20.5937, 78.9629); // India
 
@@ -112,7 +116,7 @@ class _HomeLocationStepState extends State<HomeLocationStep> {
       if (!serviceEnabled) {
         setState(
           () => _locationError =
-              'Location services are turned off on this device.',
+              'Location is off. You can still enter your address manually.',
         );
         return;
       }
@@ -122,15 +126,20 @@ class _HomeLocationStepState extends State<HomeLocationStep> {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied) {
-        setState(() => _locationError = 'Location permission was denied.');
+        setState(
+          () => _locationError =
+              'Location permission was denied. Enter your address manually, '
+              'or try location again whenever you are ready.',
+        );
         return;
       }
       if (permission == LocationPermission.deniedForever) {
-        setState(
-          () => _locationError =
-              'Location permission is permanently denied. Enable it in '
-              'system settings to auto-fill your coordinates.',
-        );
+        setState(() {
+          _permissionPermanentlyDenied = true;
+          _locationError =
+              'Location permission is off. Manual address entry still '
+              'works, or you can enable location in system settings.';
+        });
         return;
       }
 
@@ -143,6 +152,7 @@ class _HomeLocationStepState extends State<HomeLocationStep> {
       setState(() {
         _latitude = position.latitude;
         _longitude = position.longitude;
+        _permissionPermanentlyDenied = false;
       });
       _emit();
       _mapController.move(
@@ -254,6 +264,15 @@ class _HomeLocationStepState extends State<HomeLocationStep> {
               ),
             ),
           ),
+        if (_permissionPermanentlyDenied)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: Geolocator.openAppSettings,
+              icon: const Icon(Icons.settings_outlined, size: 18),
+              label: const Text('Open location settings'),
+            ),
+          ),
         SecondaryButton(
           label: hasCoords ? 'Update my location' : 'Use my current location',
           isLoading: _isLocating,
@@ -280,10 +299,9 @@ class _HomeLocationStepState extends State<HomeLocationStep> {
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
-              child: AppTextField(
-                label: 'State',
+              child: _StateSuggestionField(
                 controller: _stateController,
-                textInputAction: TextInputAction.next,
+                countryCode: widget.countryCode,
               ),
             ),
           ],
@@ -295,6 +313,53 @@ class _HomeLocationStepState extends State<HomeLocationStep> {
           hintText: 'e.g. Near City Hospital',
           textInputAction: TextInputAction.done,
           prefixIcon: Icons.place_outlined,
+        ),
+      ],
+    );
+  }
+}
+
+class _StateSuggestionField extends StatelessWidget {
+  const _StateSuggestionField({
+    required this.controller,
+    required this.countryCode,
+  });
+
+  final TextEditingController controller;
+  final String countryCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final suggestions = countrySubdivisions[countryCode] ?? const <String>[];
+    if (suggestions.isEmpty) {
+      return AppTextField(
+        label: 'State / region',
+        controller: controller,
+        textInputAction: TextInputAction.next,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('State / region', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (context, constraints) => DropdownMenu<String>(
+            key: ValueKey('state-suggestions-$countryCode'),
+            controller: controller,
+            width: constraints.maxWidth,
+            enableFilter: true,
+            enableSearch: true,
+            requestFocusOnTap: true,
+            hintText: 'Type or select',
+            dropdownMenuEntries: suggestions
+                .map((state) => DropdownMenuEntry(value: state, label: state))
+                .toList(),
+            onSelected: (state) {
+              if (state != null) controller.text = state;
+            },
+          ),
         ),
       ],
     );

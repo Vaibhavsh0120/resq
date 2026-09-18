@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phone_numbers_parser/phone_numbers_parser.dart';
 
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
@@ -50,6 +51,20 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   String get _uid => widget.initialProfile.uid;
+
+  String get _addressCountryCode {
+    final phone = _personalInfo.phoneNumber;
+    if (phone != null && phone.trim().isNotEmpty) {
+      try {
+        return PhoneNumber.parse(phone).isoCode.name;
+      } on PhoneNumberException {
+        // Fall back to the device region for legacy/invalid saved numbers.
+      }
+    }
+    return WidgetsBinding.instance.platformDispatcher.locale.countryCode
+            ?.toUpperCase() ??
+        'IN';
+  }
 
   Future<void> _handleCancel() async {
     // Cancelling on step 1 backs all the way out — sign out and return to
@@ -176,6 +191,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         isNextLoading: _isSaving,
         child: HomeLocationStep(
           initialValue: _homeLocation,
+          countryCode: _addressCountryCode,
           onChanged: (value) => _homeLocation = value,
         ),
       ),

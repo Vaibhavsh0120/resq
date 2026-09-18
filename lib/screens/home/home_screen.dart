@@ -111,17 +111,60 @@ class _HomeScreenState extends State<HomeScreen>
                         Text(
                           isGuest
                               ? "You're in — Emergency access"
-                              : "You're signed in",
+                              : 'Emergency access is ready',
                           style: Theme.of(context).textTheme.headlineSmall,
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
                           isGuest
-                              ? 'Emergency features will appear here.'
-                              : (user?.email ?? 'Welcome to ResQ.'),
+                              ? 'Using ResQ as a guest'
+                              : (user?.email ?? 'Signed-in account'),
                           style: Theme.of(context).textTheme.bodyMedium,
                           textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: scheme.error.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(AppRadius.base),
+                            border: Border.all(
+                              color: scheme.error.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.emergency_outlined,
+                                color: scheme.error,
+                              ),
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Emergency tools',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(color: scheme.error),
+                                    ),
+                                    Text(
+                                      isGuest
+                                          ? 'Core help is available without an account.'
+                                          : 'Your account has full emergency access.',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
