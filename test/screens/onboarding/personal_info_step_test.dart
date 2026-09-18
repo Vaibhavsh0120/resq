@@ -13,7 +13,7 @@ void main() {
           body: PersonalInfoStep(
             initialValue: PersonalInfo(
               fullName: 'Alex Morgan',
-              phoneNumber: '+1 555 0100',
+              phoneNumber: '+12025550123',
               dateOfBirth: DateTime(1990, 5, 4),
               bloodType: BloodType.aPositive,
             ),
@@ -52,5 +52,56 @@ void main() {
     await tester.pump();
     expect(changed?.fullName, 'Taylor');
     expect(valid, isFalse);
+  });
+
+  testWidgets('country picker normalizes and validates the phone number', (
+    tester,
+  ) async {
+    PersonalInfo? changed;
+    bool? valid;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: PersonalInfoStep(
+              initialValue: PersonalInfo(
+                fullName: 'Taylor Morgan',
+                dateOfBirth: DateTime(1990, 5, 4),
+                bloodType: BloodType.oPositive,
+              ),
+              onChanged: (value) => changed = value,
+              onValidChanged: (value) => valid = value,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('country-code-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search country or code'),
+      'IN',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ListTile, 'IN'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('phone-number-input')),
+      '123',
+    );
+    await tester.pump();
+    expect(valid, isFalse);
+    expect(find.text('Invalid number for selected country'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('phone-number-input')),
+      '9876543210',
+    );
+    await tester.pump();
+    expect(changed?.phoneNumber, '+919876543210');
+    expect(valid, isTrue);
   });
 }

@@ -6,6 +6,17 @@
 /// is just "some of these fields are null."
 library;
 
+import 'package:phone_numbers_parser/phone_numbers_parser.dart';
+
+bool isValidInternationalPhoneNumber(String? value) {
+  if (value == null || value.trim().isEmpty) return false;
+  try {
+    return PhoneNumber.parse(value).isValid();
+  } on PhoneNumberException {
+    return false;
+  }
+}
+
 enum BloodType {
   aPositive('A+'),
   aNegative('A-'),
@@ -46,8 +57,7 @@ class PersonalInfo {
   bool get isComplete =>
       fullName != null &&
       fullName!.trim().isNotEmpty &&
-      phoneNumber != null &&
-      phoneNumber!.trim().isNotEmpty &&
+      isValidInternationalPhoneNumber(phoneNumber) &&
       dateOfBirth != null &&
       bloodType != null;
 

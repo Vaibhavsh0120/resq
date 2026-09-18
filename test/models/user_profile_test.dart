@@ -7,7 +7,7 @@ void main() {
     expect(
       PersonalInfo(
         fullName: 'Alex Morgan',
-        phoneNumber: '+1 555 0100',
+        phoneNumber: '+12025550123',
         dateOfBirth: DateTime(1990, 5, 4),
         bloodType: BloodType.oPositive,
       ).isComplete,
@@ -21,7 +21,7 @@ void main() {
       'authProvider': 'password',
       'personalInfo': {
         'fullName': 'Alex Morgan',
-        'phoneNumber': '+1 555 0100',
+        'phoneNumber': '+12025550123',
         'dateOfBirth': '1990-05-04T00:00:00.000',
         'bloodType': 'O+',
       },
@@ -69,5 +69,13 @@ void main() {
     expect(profile.resumeStep, 1);
     expect(profile.onboardingCompleted, isFalse);
     expect(profile.familyCircle.members, isEmpty);
+  });
+
+  test('phone validation requires a real country-aware number', () {
+    expect(isValidInternationalPhoneNumber('+919876543210'), isTrue);
+    expect(isValidInternationalPhoneNumber('+12025550123'), isTrue);
+    expect(isValidInternationalPhoneNumber('+91 123'), isFalse);
+    expect(isValidInternationalPhoneNumber('9876543210'), isFalse);
+    expect(isValidInternationalPhoneNumber(null), isFalse);
   });
 }

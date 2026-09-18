@@ -266,7 +266,9 @@ firebase deploy --only firestore:rules,firestore:indexes
 ```
 
 Deployment requires Firebase project access but does not require leaving the free
-Spark plan.
+Spark plan. This repository's `.firebaserc` selects `resq-106ed` by default. If
+you intentionally connect a different Firebase project, run `firebase use --add`
+and select the appropriate alias before deploying.
 
 ## Build artifacts
 
