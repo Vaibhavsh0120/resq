@@ -54,6 +54,12 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Setup Node for Firestore rules tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -62,6 +68,12 @@ jobs:
 
       - name: Run tests
         run: flutter test
+
+      - name: Install Firestore rules test dependencies
+        run: npm ci
+
+      - name: Test Firestore security rules
+        run: npm run test:rules
 
       # --- Optional real release signing -------------------------------------------------
       # Configure these repo secrets to sign with your real upload keystore instead of the

@@ -9,6 +9,7 @@ import '../screens/startup/startup_screen.dart';
 import '../services/app_platform_info.dart';
 import '../services/auth_service.dart';
 import '../services/user_profile_service.dart';
+import 'navigation_policy.dart';
 
 /// App root: decides between the startup video, the auth flow, onboarding,
 /// and Home based on [AuthService.authStateChanges] — the single source of
@@ -48,14 +49,26 @@ class _AuthGateState extends State<AuthGate> {
 
         final user = snapshot.data;
         if (user == null) {
-          if (!_startupShown) {
+          final destination = decideAppDestination(
+            isAuthenticated: false,
+            isAnonymous: false,
+            showsStartupVideo: AppPlatformInfo.showsStartupVideo,
+            startupShown: _startupShown,
+          );
+          if (destination == AppDestination.startup) {
             return StartupScreen(onFinished: _markStartupShown);
           }
           return const LoginScreen();
         }
 
         // Emergency/guest access must never be gated by onboarding.
-        if (user.isAnonymous) {
+        final destination = decideAppDestination(
+          isAuthenticated: true,
+          isAnonymous: user.isAnonymous,
+          showsStartupVideo: AppPlatformInfo.showsStartupVideo,
+          startupShown: _startupShown,
+        );
+        if (destination == AppDestination.home) {
           return const HomeScreen();
         }
 

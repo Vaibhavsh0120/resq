@@ -32,6 +32,8 @@ screenshots/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 /build/
+node_modules/
+npm-debug.log*
 
 # Android local/generated state (the Gradle wrapper is intentionally tracked)
 android/.gradle/

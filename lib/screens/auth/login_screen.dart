@@ -109,8 +109,9 @@ class _LoginScreenState extends State<LoginScreen> {
     return AuthShell(
       title: 'Welcome back',
       subtitle: 'Sign in to continue to ResQ.',
-      footer: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      footer: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
             "Don't have an account? ",

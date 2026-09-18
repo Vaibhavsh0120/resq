@@ -255,7 +255,8 @@ feature-specific rules are added.
 Validate the rules with the local emulator:
 
 ```shell
-firebase emulators:exec --only firestore "flutter test"
+npm install
+npm run test:rules
 ```
 
 Deploy rules and indexes:
@@ -353,6 +354,7 @@ dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test
 flutter build web --release
+npm run test:rules
 ```
 
 For Android-affecting changes, also run:

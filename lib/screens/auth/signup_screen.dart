@@ -72,8 +72,9 @@ class _SignupScreenState extends State<SignupScreen> {
     return AuthShell(
       title: 'Create your account',
       subtitle: 'Set up ResQ so help is ready when you need it.',
-      footer: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      footer: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
             'Already have an account? ',
