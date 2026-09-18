@@ -1,0 +1,73 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isRegisteredAccount() {
+      return isSignedIn()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function owns(userId) {
+      return isRegisteredAccount() && request.auth.uid == userId;
+    }
+
+    function hasValidProfileShape(data) {
+      return data.keys().hasOnly([
+          'email',
+          'authProvider',
+          'createdAt',
+          'updatedAt',
+          'personalInfo',
+          'medicalInfo',
+          'familyCircle',
+          'homeLocation',
+          'onboardingCompleted',
+          'resumeStep'
+        ])
+        && (!('email' in data) || data.email == null || data.email is string)
+        && (!('authProvider' in data)
+          || data.authProvider in ['password', 'google.com'])
+        && (!('personalInfo' in data) || data.personalInfo is map)
+        && (!('medicalInfo' in data) || data.medicalInfo is map)
+        && (!('familyCircle' in data) || data.familyCircle is map)
+        && (!('homeLocation' in data) || data.homeLocation is map)
+        && (!('onboardingCompleted' in data)
+          || data.onboardingCompleted is bool)
+        && (!('resumeStep' in data)
+          || (data.resumeStep is int
+            && data.resumeStep >= 1
+            && data.resumeStep <= 4));
+    }
+
+    // Private profile, onboarding, home-location, and medical data.
+    match /users/{userId} {
+      allow get: if owns(userId);
+      allow list: if false;
+      allow create: if owns(userId)
+        && hasValidProfileShape(request.resource.data);
+      allow update: if owns(userId)
+        && hasValidProfileShape(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'email',
+          'authProvider',
+          'updatedAt',
+          'personalInfo',
+          'medicalInfo',
+          'familyCircle',
+          'homeLocation',
+          'onboardingCompleted',
+          'resumeStep'
+        ]);
+      allow delete: if false;
+    }
+
+    // Deny every future collection until it receives feature-specific rules.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

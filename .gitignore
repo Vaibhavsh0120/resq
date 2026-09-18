@@ -1,41 +1,97 @@
+# Operating-system and editor state
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*.iml
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
 
-# Firebase local configuration
+# Logs, temporary files, and test output
+*.log
+*.tmp
+*.temp
+*.bak
+coverage/
+test-results/
+screenshots/
+
+# Dart / Flutter generated state
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+.widget_preview/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+/build/
+
+# Android local/generated state (the Gradle wrapper is intentionally tracked)
+android/.gradle/
+android/.cxx/
+android/captures/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# Apple generated state
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Runner/GeneratedPluginRegistrant.*
+**/DerivedData/
+**/xcuserdata/
+
+# Firebase CLI caches, emulators, and debug output
 .firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+firebase-export-*/
 
-# Local environment and secrets
+# Local environment and server-side credentials
 .env
 .env.*
 !.env.example
+!.env.age
+*service-account*.json
+*service_account*.json
+serviceAccountKey.json
+credentials.json
+*.pem
+*.p8
+*.p12
+*.cer
+*.mobileprovision
 
-# Android local configuration
-android/local.properties
-
-# Signing keys and credentials
+# Android signing credentials
 *.jks
 *.keystore
 key.properties
 android/key.properties
 
-# iOS signing and provisioning
-*.p12
-*.mobileprovision
-*.cer
+# age-encrypted backups are safe to commit. Never commit an age identity or
+# decrypted source file. `.env.age` needs an explicit exception because `.env.*`
+# above intentionally ignores every other local environment variant.
+!*.age
+*.agekey
+age-key.txt
+master-age-key.txt
+*age-identity*.txt
 
-# IDE / OS files
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-!.vscode/launch.json
-!.vscode/tasks.json
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-/.idea
-/.dart_tool
-*.iml
-.flutter-plugins-dependencies
-# Widget Preview related
-.widget_preview/
-/build
+# Firebase client configuration is intentionally committed. These files
+# identify the public client app; they are not server/admin credentials.
+!android/app/google-services.json
+!lib/firebase_options.dart
+!ios/Runner/GoogleService-Info.plist

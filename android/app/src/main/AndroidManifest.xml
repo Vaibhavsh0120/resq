@@ -1,4 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Firebase (Auth, Firestore, Google Sign-In) requires network access. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Onboarding Step 4 (Home Location): fine location for the map + GPS
+         coordinates; coarse as a fallback if fine is denied. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Onboarding Step 3 (Family Circle): picking family members from the
+         device's contacts. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <application
         android:label="ResQ"
         android:name="${applicationName}"
