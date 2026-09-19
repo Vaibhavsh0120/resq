@@ -12,7 +12,7 @@ plugins {
 
 // Release signing config, loaded from android/key.properties if present.
 // This file is git-ignored and is expected to be generated locally or by CI
-// (see .github/workflows/release-build.yml). When it's absent, the release
+// (see .github/workflows/build-release.yml). When it's absent, the release
 // build type falls back to the debug signing config so `flutter run --release`
 // and local release builds keep working out of the box.
 val keystorePropertiesFile = rootProject.file("key.properties")
@@ -61,7 +61,7 @@ android {
     buildTypes {
         release {
             // Uses the real release keystore when android/key.properties is present
-            // (see .github/workflows/release-build.yml for how CI provides it).
+            // (see .github/workflows/build-release.yml for how CI provides it).
             // Otherwise falls back to debug signing, so `flutter run --release`
             // and local builds keep working without any extra setup.
             signingConfig = if (hasReleaseKeystore) {
