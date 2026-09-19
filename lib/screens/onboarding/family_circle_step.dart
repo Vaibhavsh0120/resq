@@ -348,9 +348,11 @@ class _AddFamilyMemberSheetState extends State<_AddFamilyMemberSheet> {
   Future<void> _pickFromContacts() async {
     setState(() => _isPickingContact = true);
     try {
-      final granted = await device_contacts.FlutterContacts.requestPermission(
-        readonly: true,
-      );
+      final permission = await device_contacts.FlutterContacts.permissions
+          .request(device_contacts.PermissionType.read);
+      final granted =
+          permission == device_contacts.PermissionStatus.granted ||
+          permission == device_contacts.PermissionStatus.limited;
       if (!granted) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -363,8 +365,8 @@ class _AddFamilyMemberSheetState extends State<_AddFamilyMemberSheet> {
         }
         return;
       }
-      final contacts = await device_contacts.FlutterContacts.getContacts(
-        withProperties: true,
+      final contacts = await device_contacts.FlutterContacts.getAll(
+        properties: {device_contacts.ContactProperty.phone},
       );
       if (!mounted) return;
       final picked = await showModalBottomSheet<device_contacts.Contact>(
@@ -374,7 +376,7 @@ class _AddFamilyMemberSheetState extends State<_AddFamilyMemberSheet> {
         builder: (_) => _ContactPickerSheet(contacts: contacts),
       );
       if (picked != null) {
-        _nameController.text = picked.displayName;
+        _nameController.text = picked.displayName ?? '';
         _phoneController.text = picked.phones.isNotEmpty
             ? picked.phones.first.number
             : '';
@@ -551,8 +553,9 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
         ? widget.contacts
         : widget.contacts
               .where(
-                (c) =>
-                    c.displayName.toLowerCase().contains(_query.toLowerCase()),
+                (c) => (c.displayName ?? '').toLowerCase().contains(
+                  _query.toLowerCase(),
+                ),
               )
               .toList();
 
@@ -605,8 +608,8 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
                                     .secondary
                                     .withValues(alpha: 0.12),
                                 child: Text(
-                                  contact.displayName.isNotEmpty
-                                      ? contact.displayName[0].toUpperCase()
+                                  (contact.displayName ?? '').isNotEmpty
+                                      ? contact.displayName![0].toUpperCase()
                                       : '?',
                                   style: TextStyle(
                                     color: Theme.of(context)
@@ -615,7 +618,7 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
                                   ),
                                 ),
                               ),
-                              title: Text(contact.displayName),
+                              title: Text(contact.displayName ?? ''),
                               subtitle: contact.phones.isNotEmpty
                                   ? Text(contact.phones.first.number)
                                   : null,
