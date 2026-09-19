@@ -224,10 +224,7 @@ class _FormCard extends StatelessWidget {
         if (!expanded) ...[
           Row(
             children: [
-              ResQBrandMark(
-                size: compact ? 28 : 42,
-                showWordmark: true,
-              ),
+              ResQBrandMark(size: compact ? 28 : 42, showWordmark: true),
               const Spacer(),
               const ThemeModeButton(),
             ],

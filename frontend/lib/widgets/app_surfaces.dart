@@ -79,17 +79,23 @@ class AppSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(AppRadius.lg);
     return Container(
-      padding: padding,
       decoration: BoxDecoration(
-        color: color ?? scheme.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: radius,
         boxShadow: showShadow
             ? AppShadows.card(Theme.of(context).brightness)
             : null,
       ),
-      child: child,
+      child: Material(
+        color: color ?? scheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: BorderSide(color: scheme.outlineVariant),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(padding: padding, child: child),
+      ),
     );
   }
 }

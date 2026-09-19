@@ -108,5 +108,5 @@ test('createdAt is immutable but onboarding fields may be updated', async () => 
 
 test('undeclared future collections are denied by default', async () => {
   const db = passwordUser('owner').firestore();
-  await assertFails(setDoc(doc(db, 'sosEvents', 'event-1'), { ownerId: 'owner' }));
+  await assertFails(setDoc(doc(db, 'futureCollection', 'item-1'), { ownerId: 'owner' }));
 });

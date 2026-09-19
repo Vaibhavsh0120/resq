@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>ResQ uses your location to record your home location during setup and to speed up emergency assistance.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>ResQ uses the camera only when you choose to attach a photo to a private incident report.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>ResQ uses your contacts so you can quickly add trusted people to your Family Circle.</string>
 	<key>CFBundleURLTypes</key>

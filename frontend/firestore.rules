@@ -15,6 +15,11 @@ service cloud.firestore {
       return isRegisteredAccount() && request.auth.uid == userId;
     }
 
+    function isCircleMember(circleId) {
+      return isRegisteredAccount()
+        && exists(/databases/$(database)/documents/householdCircles/$(circleId)/members/$(request.auth.uid));
+    }
+
     function hasValidProfileShape(data) {
       return data.keys().hasOnly([
           'email',
@@ -63,6 +68,115 @@ service cloud.firestore {
           'resumeStep'
         ]);
       allow delete: if false;
+
+      match /settings/{settingsId} {
+        allow read, write: if owns(userId);
+      }
+
+      match /readiness/{itemId} {
+        allow read, write: if owns(userId);
+      }
+
+      match /emergencyContacts/{contactId} {
+        allow read, write: if owns(userId);
+      }
+
+      match /notifications/{notificationId} {
+        allow read, update, delete: if owns(userId);
+        allow create: if false;
+      }
+    }
+
+    // Verified public safety content is readable in registered and emergency mode.
+    match /publicAlerts/{alertId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /emergencyEvents/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /safePlaces/{placeId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /guidance/{guideId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /verifiedReports/{reportId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Submitted reports remain private until the backend publishes a sanitized projection.
+    match /incidentReports/{reportId} {
+      allow create: if isRegisteredAccount()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow read: if isRegisteredAccount() && resource.data.ownerId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Circle creation, membership and invitations are backend-only so clients cannot grant access.
+    match /householdCircles/{circleId} {
+      allow read: if isCircleMember(circleId);
+      allow write: if false;
+
+      match /members/{memberId} {
+        allow read: if isCircleMember(circleId);
+        allow write: if false;
+      }
+
+      match /checkIns/{checkInId} {
+        allow read: if isCircleMember(circleId);
+        allow create: if isCircleMember(circleId)
+          && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    match /circleInvites/{inviteId} {
+      allow read, write: if false;
+    }
+
+    match /locationShares/{shareId} {
+      allow create: if isRegisteredAccount()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.expiresAt > request.time;
+      allow read: if isRegisteredAccount()
+        && resource.data.expiresAt > request.time
+        && (resource.data.ownerId == request.auth.uid
+          || isCircleMember(resource.data.circleId));
+      allow update, delete: if isRegisteredAccount()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /sosEvents/{eventId} {
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid;
+      allow read: if isSignedIn()
+        && (resource.data.ownerId == request.auth.uid
+          || request.auth.uid in resource.data.authorizedUids);
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /conversations/{conversationId} {
+      allow create: if isRegisteredAccount()
+        && request.resource.data.ownerId == request.auth.uid;
+      allow read, update, delete: if isRegisteredAccount()
+        && resource.data.ownerId == request.auth.uid;
+
+      match /messages/{messageId} {
+        allow read: if isRegisteredAccount()
+          && get(/databases/$(database)/documents/conversations/$(conversationId)).data.ownerId == request.auth.uid;
+        allow write: if false;
+      }
     }
 
     // Deny every future collection until it receives feature-specific rules.
