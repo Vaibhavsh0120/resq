@@ -83,23 +83,27 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: |
+          cd frontend
           flutter pub get
           npm ci
 
       - name: Verify generated dependency lockfile is current
-        run: git diff --exit-code -- pubspec.lock
+        run: git diff --exit-code -- frontend/pubspec.lock
 
       - name: Analyze
+        working-directory: frontend
         run: flutter analyze --fatal-infos
 
       - name: Run Flutter tests
+        working-directory: frontend
         run: flutter test --reporter expanded
 
       - name: Test Firestore security rules
+        working-directory: frontend
         run: npm run test:rules
 
   build-android:
@@ -129,6 +133,7 @@ jobs:
           cache: true
 
       - name: Install dependencies
+        working-directory: frontend
         run: flutter pub get
 
       # --- Optional real release signing -------------------------------------------------
@@ -170,26 +175,28 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | openssl base64 -d -A \
-            -out android/app/release-upload.keystore.jks
+            -out frontend/android/app/release-upload.keystore.jks
           {
             printf 'storePassword=%s\n' "$STORE_PASSWORD"
             printf 'keyPassword=%s\n' "$KEY_PASSWORD"
             printf 'keyAlias=%s\n' "$KEY_ALIAS"
             printf 'storeFile=release-upload.keystore.jks\n'
-          } > android/key.properties
+          } > frontend/android/key.properties
 
       - name: Build release APK
+        working-directory: frontend
         run: flutter build apk --release
 
       - name: Build release app bundle
+        working-directory: frontend
         run: flutter build appbundle --release
 
       - name: Prepare release artifacts
         run: |
           mkdir -p release
-          cp build/app/outputs/flutter-apk/app-release.apk \
+          cp frontend/build/app/outputs/flutter-apk/app-release.apk \
             "release/ResQ-${RELEASE_TAG}-release.apk"
-          cp build/app/outputs/bundle/release/app-release.aab \
+          cp frontend/build/app/outputs/bundle/release/app-release.aab \
             "release/ResQ-${RELEASE_TAG}-release.aab"
 
       - name: Upload Android artifacts
@@ -220,6 +227,7 @@ jobs:
           cache: true
 
       - name: Install dependencies
+        working-directory: frontend
         run: flutter pub get
 
       # --- Optional real code signing -----------------------------------------------------
@@ -283,7 +291,7 @@ jobs:
         env:
           TEAM_ID: ${{ secrets.IOS_EXPORT_TEAM_ID }}
         run: |
-          cat > ios/ExportOptions.plist <<EOF
+          cat > frontend/ios/ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -302,21 +310,24 @@ jobs:
 
       - name: Build signed release IPA
         if: steps.signing.outputs.signed == 'true'
+        working-directory: frontend
         run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
 
       - name: Prepare signed IPA artifact
         if: steps.signing.outputs.signed == 'true'
         run: |
           mkdir -p release
-          cp build/ios/ipa/*.ipa \
+          cp frontend/build/ios/ipa/*.ipa \
             "release/ResQ-${RELEASE_TAG}.ipa"
 
       - name: Build unsigned release IPA
         if: steps.signing.outputs.signed == 'false'
         run: |
+          cd frontend
           flutter build ios --release --no-codesign
+          cd ..
           mkdir -p Payload release
-          cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
+          cp -R frontend/build/ios/iphoneos/Runner.app Payload/Runner.app
           zip -r "release/ResQ-${RELEASE_TAG}-unsigned.ipa" Payload
 
       - name: Upload IPA artifact

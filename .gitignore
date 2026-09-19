@@ -17,43 +17,56 @@ Desktop.ini
 *.tmp
 *.temp
 *.bak
-coverage/
-test-results/
-screenshots/
+**/coverage/
+**/test-results/
+**/screenshots/
 
-# Dart / Flutter generated state
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub/
-.pub-cache/
-.widget_preview/
+# Dart / Flutter generated state (Flutter lives in frontend/)
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub/
+**/.pub-cache/
+**/.widget_preview/
 **/doc/api/
 **/ios/Flutter/.last_build_id
-/build/
+**/build/
 node_modules/
 npm-debug.log*
 
 # Android local/generated state (the Gradle wrapper is intentionally tracked)
-android/.gradle/
-android/.cxx/
-android/captures/
-android/local.properties
-android/app/debug/
-android/app/profile/
-android/app/release/
-android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+**/android/.gradle/
+**/android/.cxx/
+**/android/captures/
+**/android/local.properties
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+**/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 
 # Apple generated state
-ios/Pods/
-ios/.symlinks/
-ios/Flutter/ephemeral/
-ios/Flutter/Generated.xcconfig
-ios/Flutter/flutter_export_environment.sh
-ios/Runner/GeneratedPluginRegistrant.*
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Runner/GeneratedPluginRegistrant.*
 **/DerivedData/
 **/xcuserdata/
+
+# Python / FastAPI generated state (backend/)
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.venv/
+**/venv/
+**/*.egg-info/
+**/.coverage
+**/htmlcov/
+**/dist/
 
 # Firebase CLI caches, emulators, and debug output
 .firebase/
@@ -81,7 +94,7 @@ credentials.json
 *.jks
 *.keystore
 key.properties
-android/key.properties
+**/android/key.properties
 
 # age-encrypted backups are safe to commit. Never commit an age identity or
 # decrypted source file. `.env.age` needs an explicit exception because `.env.*`
@@ -94,6 +107,6 @@ master-age-key.txt
 
 # Firebase client configuration is intentionally committed. These files
 # identify the public client app; they are not server/admin credentials.
-!android/app/google-services.json
-!lib/firebase_options.dart
-!ios/Runner/GoogleService-Info.plist
+!frontend/android/app/google-services.json
+!frontend/lib/firebase_options.dart
+!frontend/ios/Runner/GoogleService-Info.plist

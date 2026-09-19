@@ -59,31 +59,22 @@ Desktop users should run the responsive web version.
 ## Project structure
 
 ```text
-assets/videos/             Light and dark startup videos
-docs/architecture.md       Architecture and future data-boundary guidance
-lib/
-  main.dart                App initialization and root theme setup
-  firebase_options.dart    FlutterFire client configuration
-  models/                  Firestore-facing domain models
-  routing/                 Authentication and onboarding gate
-  screens/
-    auth/                  Login, signup, and password reset
-    onboarding/            Four-step onboarding flow
-    startup/               Native startup video
-    home/                  Current authenticated placeholder
-  services/                Firebase, platform, profile, and theme services
-  theme/                   Design tokens and motion
-  widgets/                 Shared form and button components
-android/                   Android platform project
-ios/                       iOS/iPadOS platform project
-web/                       Flutter web shell and PWA assets
-firestore.rules            Firestore authorization policy
-firestore.indexes.json     Firestore index configuration
-firebase.json              Firebase CLI project configuration
+frontend/                  Flutter application and Firebase client project
+  assets/videos/           Light and dark startup videos
+  docs/architecture.md     Architecture and future data-boundary guidance
+  lib/                     Application source
+  test/                    Flutter and Firestore rules tests
+  android/                 Android platform project
+  ios/                     iOS/iPadOS platform project
+  web/                     Flutter web shell and PWA assets
+  firestore.rules          Firestore authorization policy
+  firestore.indexes.json   Firestore index configuration
+  firebase.json            Firebase CLI project configuration
+backend/                   FastAPI service workspace
 ```
 
 For architectural boundaries and the recommended future feature-module layout,
-read [docs/architecture.md](docs/architecture.md).
+read [frontend/docs/architecture.md](frontend/docs/architecture.md).
 
 ## Prerequisites
 
@@ -115,7 +106,7 @@ Clone the repository and install packages:
 
 ```shell
 git clone <repository-url>
-cd resq
+cd resq/frontend
 flutter pub get
 ```
 

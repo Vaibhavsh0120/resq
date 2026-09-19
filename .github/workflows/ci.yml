@@ -44,24 +44,29 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install Flutter dependencies
+        working-directory: frontend
         run: flutter pub get
 
       - name: Verify generated dependency lockfile is current
-        run: git diff --exit-code -- pubspec.lock
+        run: git diff --exit-code -- frontend/pubspec.lock
 
       - name: Analyze Dart code
+        working-directory: frontend
         run: flutter analyze --fatal-infos
 
       - name: Run Flutter tests
+        working-directory: frontend
         run: flutter test --reporter expanded
 
       - name: Install Firestore test dependencies
+        working-directory: frontend
         run: npm ci
 
       - name: Test Firestore security rules
+        working-directory: frontend
         run: npm run test:rules
 
   android-build:
@@ -89,7 +94,9 @@ jobs:
           cache: true
 
       - name: Install dependencies
+        working-directory: frontend
         run: flutter pub get
 
       - name: Build release APK
+        working-directory: frontend
         run: flutter build apk --release
