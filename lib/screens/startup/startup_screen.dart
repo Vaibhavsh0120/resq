@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../theme/app_motion.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/brand_mark.dart';
 
 /// Plays the theme-appropriate startup video once, then hands off via
 /// [onFinished]. Tap anywhere to skip. Never actually shown on web — see
@@ -106,6 +108,43 @@ class _StartupScreenState extends State<StartupScreen> {
                     )
                   : const SizedBox.shrink(),
             ),
+            Positioned(
+              left: AppSpacing.lg,
+              top: AppSpacing.lg,
+              child: SafeArea(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface
+                        .withValues(alpha: .88),
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                    child: ResQBrandMark(size: 30, showWordmark: true),
+                  ),
+                ),
+              ),
+            ),
+            if (!ready && !_hadError)
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const ResQBrandMark(size: 72),
+                    const SizedBox(height: AppSpacing.lg),
+                    const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Preparing ResQ…',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
             if (ready)
               Positioned(
                 right: 20,
@@ -134,7 +173,8 @@ class _SkipPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: scheme.surface.withValues(alpha: 0.9),
+      color: scheme.surface.withValues(alpha: 0.94),
+      elevation: 8,
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),

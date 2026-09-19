@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import '../../theme/app_motion.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_text_field.dart';
+import '../../widgets/app_surfaces.dart';
 import '../../widgets/auth_error_banner.dart';
 import '../../widgets/primary_button.dart';
 import 'auth_shell.dart';
@@ -19,6 +20,7 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
+  final _emailFocusNode = FocusNode();
 
   bool _isSubmitting = false;
   bool _emailSent = false;
@@ -27,11 +29,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   void dispose() {
     _emailController.dispose();
+    _emailFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _emailFocusNode.requestFocus(),
+      );
+      return;
+    }
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -90,6 +98,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     AppTextField(
                       label: 'Email',
                       controller: _emailController,
+                      focusNode: _emailFocusNode,
                       hintText: 'you@example.com',
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.done,
@@ -127,24 +136,19 @@ class _SentConfirmation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: scheme.secondary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: scheme.secondary.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return AppSectionCard(
+      color: scheme.secondary.withValues(alpha: 0.08),
+      child: Column(
         children: [
-          Icon(Icons.mark_email_read_outlined, color: scheme.secondary),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              "If an account exists for that email, we've sent a link to "
-              'reset your password. It may take a minute to arrive.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+          const AppIllustration(
+            'assets/illustrations/password_sent.png',
+            height: 150,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            "If an account exists for that email, we've sent a link to reset your password. It may take a minute to arrive.",
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
       ),

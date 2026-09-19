@@ -18,13 +18,23 @@ void main() {
     tester,
   ) async {
     await pumpTestApp(tester, const LoginScreen());
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Sign in'));
+    final signIn = find.widgetWithText(ElevatedButton, 'Sign in');
+    await tester.ensureVisible(signIn);
+    await tester.tap(signIn);
     await tester.pump();
     expect(find.text('Enter your email'), findsOneWidget);
     expect(find.text('Enter your password'), findsOneWidget);
+    expect(
+      tester
+          .widget<EditableText>(find.byType(EditableText).first)
+          .focusNode
+          .hasFocus,
+      isTrue,
+    );
 
     await tester.enterText(find.byType(TextFormField).first, 'invalid-email');
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Sign in'));
+    await tester.ensureVisible(signIn);
+    await tester.tap(signIn);
     await tester.pump();
     expect(find.text('Enter a valid email'), findsOneWidget);
   });
@@ -43,15 +53,18 @@ void main() {
   ) async {
     await pumpTestApp(tester, const LoginScreen());
     await tester.ensureVisible(find.text('Sign up'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sign up'));
     await tester.pumpAndSettle();
     expect(find.text('Create your account'), findsOneWidget);
 
     final backToSignIn = find.widgetWithText(TextButton, 'Sign in');
     await tester.ensureVisible(backToSignIn);
+    await tester.pumpAndSettle();
     await tester.tap(backToSignIn);
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Forgot password?'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Forgot password?'));
     await tester.pumpAndSettle();
     expect(find.text('Reset your password'), findsOneWidget);

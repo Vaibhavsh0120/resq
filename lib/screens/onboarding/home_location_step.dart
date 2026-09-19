@@ -8,6 +8,7 @@ import '../../models/user_profile.dart';
 import '../../data/country_subdivisions.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_text_field.dart';
+import '../../widgets/app_surfaces.dart';
 import '../../widgets/primary_button.dart';
 
 /// Onboarding Step 4 — Home Location.
@@ -179,6 +180,11 @@ class _HomeLocationStepState extends State<HomeLocationStep> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const AppIllustration(
+          'assets/illustrations/home_location.png',
+          height: 150,
+        ),
+        const SizedBox(height: AppSpacing.md),
         Text('GPS location', style: textTheme.labelLarge),
         const SizedBox(height: 8),
         ClipRRect(

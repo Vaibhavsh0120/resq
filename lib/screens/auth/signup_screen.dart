@@ -22,6 +22,10 @@ class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _nameFocusNode = FocusNode();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
+  final _confirmPasswordFocusNode = FocusNode();
 
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -32,11 +36,33 @@ class _SignupScreenState extends State<SignupScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _nameFocusNode.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    _confirmPasswordFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      final email = _emailController.text.trim();
+      final FocusNode firstInvalidFocus;
+      if (_nameController.text.trim().isEmpty) {
+        firstInvalidFocus = _nameFocusNode;
+      } else if (email.isEmpty ||
+          !email.contains('@') ||
+          !email.contains('.')) {
+        firstInvalidFocus = _emailFocusNode;
+      } else if (_passwordController.text.length < 6) {
+        firstInvalidFocus = _passwordFocusNode;
+      } else {
+        firstInvalidFocus = _confirmPasswordFocusNode;
+      }
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => firstInvalidFocus.requestFocus(),
+      );
+      return;
+    }
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -58,7 +84,14 @@ class _SignupScreenState extends State<SignupScreen> {
           fullName: _nameController.text.trim(),
         );
       }
-      // AuthGate + OnboardingGate take over from here automatically.
+      // Signup is pushed on top of AuthGate's login surface. Auth state has
+      // changed, but a pushed route remains visible until it is removed.
+      // Return to the root so AuthGate can immediately render the user's
+      // incomplete profile as OnboardingFlow (instead of leaving them on the
+      // now-stale login/signup route).
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } on AuthFailure catch (e) {
       HapticFeedback.heavyImpact();
       if (mounted) setState(() => _errorMessage = e.message);
@@ -95,6 +128,7 @@ class _SignupScreenState extends State<SignupScreen> {
             AppTextField(
               label: 'Full name',
               controller: _nameController,
+              focusNode: _nameFocusNode,
               hintText: 'Jordan Rivera',
               textInputAction: TextInputAction.next,
               enabled: !_isSubmitting,
@@ -111,6 +145,7 @@ class _SignupScreenState extends State<SignupScreen> {
             AppTextField(
               label: 'Email',
               controller: _emailController,
+              focusNode: _emailFocusNode,
               hintText: 'you@example.com',
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
@@ -131,7 +166,9 @@ class _SignupScreenState extends State<SignupScreen> {
             AppTextField(
               label: 'Password',
               controller: _passwordController,
+              focusNode: _passwordFocusNode,
               obscureText: true,
+              helperText: 'Use at least 6 characters',
               textInputAction: TextInputAction.next,
               enabled: !_isSubmitting,
               prefixIcon: Icons.lock_outline,
@@ -150,6 +187,7 @@ class _SignupScreenState extends State<SignupScreen> {
             AppTextField(
               label: 'Confirm password',
               controller: _confirmPasswordController,
+              focusNode: _confirmPasswordFocusNode,
               obscureText: true,
               textInputAction: TextInputAction.done,
               enabled: !_isSubmitting,

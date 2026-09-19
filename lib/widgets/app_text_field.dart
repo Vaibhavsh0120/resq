@@ -10,6 +10,8 @@ class AppTextField extends StatefulWidget {
     required this.label,
     required this.controller,
     this.hintText,
+    this.helperText,
+    this.focusNode,
     this.obscureText = false,
     this.keyboardType,
     this.textInputAction,
@@ -23,6 +25,8 @@ class AppTextField extends StatefulWidget {
   final String label;
   final TextEditingController controller;
   final String? hintText;
+  final String? helperText;
+  final FocusNode? focusNode;
   final bool obscureText;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
@@ -49,6 +53,7 @@ class _AppTextFieldState extends State<AppTextField> {
         const SizedBox(height: 8),
         TextFormField(
           controller: widget.controller,
+          focusNode: widget.focusNode,
           obscureText: _obscured,
           enabled: widget.enabled,
           keyboardType: widget.keyboardType,
@@ -59,6 +64,7 @@ class _AppTextFieldState extends State<AppTextField> {
           style: textTheme.bodyLarge,
           decoration: InputDecoration(
             hintText: widget.hintText,
+            helperText: widget.helperText,
             prefixIcon: widget.prefixIcon != null
                 ? Icon(widget.prefixIcon, size: 20)
                 : null,

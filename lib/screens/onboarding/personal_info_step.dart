@@ -5,6 +5,7 @@ import 'package:phone_numbers_parser/phone_numbers_parser.dart';
 import '../../models/user_profile.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_text_field.dart';
+import '../../widgets/app_surfaces.dart';
 
 /// Onboarding Step 1 — Personal Info. Pure, controller-driven form widget:
 /// [OnboardingFlow] owns the [PersonalInfo] state and passes it down, this
@@ -117,6 +118,11 @@ class _PersonalInfoStepState extends State<PersonalInfoStep> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const AppIllustration(
+          'assets/illustrations/onboarding_profile.png',
+          height: 150,
+        ),
+        const SizedBox(height: AppSpacing.md),
         AppTextField(
           label: 'Full name',
           controller: _nameController,

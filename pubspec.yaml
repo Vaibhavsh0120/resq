@@ -73,6 +73,7 @@ flutter:
   assets:
     - assets/videos/startup_light.mp4
     - assets/videos/startup_dark.mp4
+    - assets/illustrations/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

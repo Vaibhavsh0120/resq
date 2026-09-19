@@ -5,6 +5,7 @@ import 'package:flutter_contacts/flutter_contacts.dart' as device_contacts;
 import '../../models/user_profile.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_text_field.dart';
+import '../../widgets/app_surfaces.dart';
 import '../../widgets/primary_button.dart';
 
 /// Onboarding Step 3 — Family Circle.
@@ -120,25 +121,15 @@ class _EmptyFamilyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return DottedBorderBox(
       onTap: onAdd,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
         child: Column(
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: scheme.secondary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.group_add_outlined,
-                color: scheme.secondary,
-                size: 26,
-              ),
+            const AppIllustration(
+              'assets/illustrations/family_circle.png',
+              height: 170,
             ),
             const SizedBox(height: AppSpacing.md),
             Text(

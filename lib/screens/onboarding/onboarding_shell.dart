@@ -3,20 +3,10 @@ import 'package:flutter/services.dart';
 
 import '../../theme/app_motion.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_surfaces.dart';
+import '../../widgets/brand_mark.dart';
 import '../../widgets/theme_mode_button.dart';
 
-/// Shared chrome for all 4 onboarding steps: an animated progress bar,
-/// "Step X of 4" label, and Back/Cancel navigation.
-///
-/// - Step 1: shows **Cancel** (signs out, returns to Login) — starting
-///   onboarding is easy to back out of entirely.
-/// - Steps 2–4: shows **Back** to the previous step instead — once personal
-///   info exists, backing out of the whole flow is a bigger, more
-///   deliberate action than just revisiting the prior step.
-///
-/// Layout follows the same responsive approach as [AuthShell]: full-bleed
-/// scrollable form on phones, a centered max-width card on tablet/desktop
-/// so a 4-step form doesn't stretch edge-to-edge on a Mac window.
 class OnboardingShell extends StatelessWidget {
   const OnboardingShell({
     super.key,
@@ -43,199 +33,255 @@ class OnboardingShell extends StatelessWidget {
   final bool isNextLoading;
   final bool isNextEnabled;
 
-  static const double _cardMaxWidth = 560;
+  static const _maxWidth = 760.0;
+  static const _stepNames = ['About you', 'Health', 'Circle', 'Location'];
 
   @override
   Widget build(BuildContext context) {
+    final isFirst = step == 1;
     final scheme = Theme.of(context).colorScheme;
-    final isFirstStep = step == 1;
-
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.md,
-                AppSpacing.lg,
-                0,
-              ),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
-                child: Row(
-                  children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        HapticFeedback.selectionClick();
-                        onBackOrCancel();
-                      },
-                      icon: Icon(
-                        isFirstStep ? Icons.close : Icons.arrow_back,
-                        size: 18,
-                      ),
-                      label: Text(isFirstStep ? 'Cancel' : 'Back'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: scheme.onSurfaceVariant,
-                      ),
+      body: AppBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: _maxWidth),
+                    child: Row(
+                      children: [
+                        const ResQBrandMark(size: 38, showWordmark: true),
+                        const Spacer(),
+                        const ThemeModeButton(),
+                        const SizedBox(width: AppSpacing.xs),
+                        TextButton.icon(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            onBackOrCancel();
+                          },
+                          icon: Icon(
+                            isFirst
+                                ? Icons.close_rounded
+                                : Icons.arrow_back_rounded,
+                            size: 18,
+                          ),
+                          label: Text(isFirst ? 'Cancel' : 'Back'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                    const Spacer(),
-                    const ThemeModeButton(),
-                    Text(
-                      'Step $step of $totalSteps',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.sm,
-              ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
-                  child: _ProgressBar(step: step, totalSteps: totalSteps),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.sm,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: _maxWidth),
+                    child: _Progress(
+                      step: step,
+                      totalSteps: totalSteps,
+                      names: _stepNames,
+                    ),
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final horizontalPadding =
-                      AppBreakpoints.isCompact(constraints.maxWidth)
-                      ? AppSpacing.lg
-                      : AppSpacing.xl;
-                  return SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: horizontalPadding,
-                      vertical: AppSpacing.lg,
+              Expanded(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.fromLTRB(
+                    AppBreakpoints.isCompact(MediaQuery.sizeOf(context).width)
+                        ? AppSpacing.md
+                        : AppSpacing.xl,
+                    AppSpacing.lg,
+                    AppBreakpoints.isCompact(MediaQuery.sizeOf(context).width)
+                        ? AppSpacing.md
+                        : AppSpacing.xl,
+                    AppSpacing.xxl,
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: _maxWidth),
+                      child: AnimatedSwitcher(
+                        duration: reduceMotion
+                            ? Duration.zero
+                            : AppMotion.medium,
+                        switchInCurve: AppMotion.emphasized,
+                        transitionBuilder: (content, animation) =>
+                            FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween(
+                                  begin: const Offset(.025, 0),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: content,
+                              ),
+                            ),
+                        child: Column(
+                          key: ValueKey(step),
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Step $step of $totalSteps',
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(color: AppColors.accent),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              title,
+                              style: Theme.of(context).textTheme.headlineMedium,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              subtitle,
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            AppSectionCard(
+                              padding: EdgeInsets.all(
+                                AppBreakpoints.isCompact(
+                                      MediaQuery.sizeOf(context).width,
+                                    )
+                                    ? AppSpacing.md
+                                    : AppSpacing.lg,
+                              ),
+                              child: child,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.surface.withValues(alpha: .96),
+                  border: Border(top: BorderSide(color: scheme.outlineVariant)),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.md,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
                     ),
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: _cardMaxWidth,
-                        ),
-                        child: AnimatedSwitcher(
-                          duration: AppMotion.medium,
-                          switchInCurve: AppMotion.emphasized,
-                          transitionBuilder: (widgetChild, animation) =>
-                              FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(0.04, 0),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: widgetChild,
-                                ),
-                              ),
-                          child: Column(
-                            key: ValueKey(step),
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                title,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineMedium,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                subtitle,
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                              const SizedBox(height: AppSpacing.xl),
-                              child,
-                              const SizedBox(height: AppSpacing.xxl),
-                            ],
+                        constraints: const BoxConstraints(maxWidth: 520),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: FilledButton.icon(
+                            onPressed:
+                                isNextEnabled &&
+                                    !isNextLoading &&
+                                    onNext != null
+                                ? () {
+                                    HapticFeedback.lightImpact();
+                                    onNext!();
+                                  }
+                                : null,
+                            icon: isNextLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.3,
+                                    ),
+                                  )
+                                : Icon(
+                                    step == totalSteps
+                                        ? Icons.check_rounded
+                                        : Icons.arrow_forward_rounded,
+                                  ),
+                            label: Text(isNextLoading ? 'Saving…' : nextLabel),
                           ),
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                0,
-                AppSpacing.lg,
-                AppSpacing.lg,
-              ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
-                  child: FilledButton(
-                    onPressed: isNextEnabled && !isNextLoading && onNext != null
-                        ? () {
-                            HapticFeedback.lightImpact();
-                            onNext!();
-                          }
-                        : null,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: scheme.primary,
-                      foregroundColor: scheme.onPrimary,
-                      minimumSize: const Size.fromHeight(52),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.base),
-                      ),
-                    ),
-                    child: isNextLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                        : Text(nextLabel),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.step, required this.totalSteps});
-
+class _Progress extends StatelessWidget {
+  const _Progress({
+    required this.step,
+    required this.totalSteps,
+    required this.names,
+  });
   final int step;
   final int totalSteps;
+  final List<String> names;
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
+  Widget build(BuildContext context) => Semantics(
+    label: 'Onboarding progress, step $step of $totalSteps: ${names[step - 1]}',
+    child: Row(
       children: List.generate(totalSteps, (index) {
-        final isActive = index < step;
+        final number = index + 1;
+        final complete = number < step;
+        final active = number == step;
+        final color = complete || active
+            ? AppColors.accent
+            : Theme.of(context).colorScheme.outlineVariant;
         return Expanded(
           child: Padding(
-            padding: EdgeInsets.only(right: index == totalSteps - 1 ? 0 : 6),
-            child: AnimatedContainer(
-              duration: AppMotion.medium,
-              curve: AppMotion.standard,
-              height: 4,
-              decoration: BoxDecoration(
-                color: isActive
-                    ? scheme.secondary
-                    : scheme.outlineVariant.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(AppRadius.full),
-              ),
+            padding: EdgeInsets.only(
+              right: index == totalSteps - 1 ? 0 : AppSpacing.sm,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedContainer(
+                  duration: AppMotion.medium,
+                  height: active ? 6 : 4,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  names[index],
+                  maxLines: 1,
+                  overflow: TextOverflow.fade,
+                  softWrap: false,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: active ? AppColors.accent : null,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
             ),
           ),
         );
       }),
-    );
-  }
+    ),
+  );
 }

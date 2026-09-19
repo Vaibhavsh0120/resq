@@ -23,6 +23,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
 
   bool _isSubmitting = false;
   bool _isGoogleLoading = false;
@@ -33,13 +35,27 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
   bool get _anyLoading => _isSubmitting || _isGoogleLoading || _isGuestLoading;
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      final email = _emailController.text.trim();
+      final FocusNode firstInvalidFocus;
+      if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+        firstInvalidFocus = _emailFocusNode;
+      } else {
+        firstInvalidFocus = _passwordFocusNode;
+      }
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => firstInvalidFocus.requestFocus(),
+      );
+      return;
+    }
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -158,6 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
             AppTextField(
               label: 'Email',
               controller: _emailController,
+              focusNode: _emailFocusNode,
               hintText: 'you@example.com',
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
@@ -178,6 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
             AppTextField(
               label: 'Password',
               controller: _passwordController,
+              focusNode: _passwordFocusNode,
               obscureText: true,
               textInputAction: TextInputAction.done,
               enabled: !_anyLoading,
