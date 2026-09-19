@@ -43,7 +43,7 @@ dependencies:
   google_fonts: ^8.0.2
   geolocator: ^14.0.2
   flutter_map: ^8.2.2
-  latlong2: ^0.9.1
+  latlong2: ^0.10.1
   flutter_contacts: ^1.1.9+2
   flutter_web_plugins:
     sdk: flutter
