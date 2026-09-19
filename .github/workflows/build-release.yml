@@ -1,10 +1,10 @@
 name: Build ResQ Mobile Releases
 
-# Builds RELEASE builds (not debug) of the Android APK and the iOS IPA, and optionally
+# Builds RELEASE builds (not debug) of the Android APK/AAB and the iOS IPA, and
 # publishes them to a GitHub Release.
 #
 # Android:
-#   - Always builds a release APK.
+#   - Always builds a release APK and Play Store app bundle.
 #   - If the ANDROID_KEYSTORE_BASE64 (+ related) secrets are configured, the release build is
 #     signed with your real upload key (android/app/build.gradle.kts reads
 #     android/key.properties automatically when present). Otherwise it falls back to debug
@@ -36,44 +36,100 @@ on:
         default: "ResQ Mobile Build"
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: "3.47.4"
+  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+  RELEASE_NAME: ${{ inputs.release_name || github.ref_name }}
 
 jobs:
-  build-android:
-    name: Build Android APK
-    runs-on: ubuntu-latest
+  validate:
+    name: Validate release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
 
     steps:
+      - name: Validate release tag
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must use a semantic version such as v1.2.3." >&2
+            exit 1
+          fi
+
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: "21"
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: "3.47.4"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
-      - name: Setup Node for Firestore rules tests
-        uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "22"
           cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
+          npm ci
+
+      - name: Verify generated dependency lockfile is current
+        run: git diff --exit-code -- pubspec.lock
 
       - name: Analyze
-        run: flutter analyze
+        run: flutter analyze --fatal-infos
 
-      - name: Run tests
-        run: flutter test
-
-      - name: Install Firestore rules test dependencies
-        run: npm ci
+      - name: Run Flutter tests
+        run: flutter test --reporter expanded
 
       - name: Test Firestore security rules
         run: npm run test:rules
+
+  build-android:
+    name: Build Android APK and AAB
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Firebase CLI's Firestore emulator requires a modern Java runtime. Using
+      # one explicit JDK also keeps Gradle independent of runner-image changes.
+      - name: Setup Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
 
       # --- Optional real release signing -------------------------------------------------
       # Configure these repo secrets to sign with your real upload keystore instead of the
@@ -87,9 +143,19 @@ jobs:
       - name: Determine Android signing mode
         id: android_signing
         env:
-          HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -n "$HAS_KEYSTORE" ]; then
+          configured=0
+          for value in "$KEYSTORE" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD"; do
+            [ -n "$value" ] && configured=$((configured + 1))
+          done
+          if [ "$configured" -ne 0 ] && [ "$configured" -ne 4 ]; then
+            echo "Configure all four Android signing secrets, or none of them." >&2
+            exit 1
+          elif [ "$configured" -eq 4 ]; then
             echo "signed=true" >> "$GITHUB_OUTPUT"
           else
             echo "signed=false" >> "$GITHUB_OUTPUT"
@@ -99,51 +165,62 @@ jobs:
         if: steps.android_signing.outputs.signed == 'true'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release-upload.keystore.jks
-          cat > android/key.properties <<EOF
-          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          storeFile=release-upload.keystore.jks
-          EOF
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | openssl base64 -d -A \
+            -out android/app/release-upload.keystore.jks
+          {
+            printf 'storePassword=%s\n' "$STORE_PASSWORD"
+            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'storeFile=release-upload.keystore.jks\n'
+          } > android/key.properties
 
       - name: Build release APK
         run: flutter build apk --release
+
+      - name: Build release app bundle
+        run: flutter build appbundle --release
 
       - name: Prepare release artifacts
         run: |
           mkdir -p release
           cp build/app/outputs/flutter-apk/app-release.apk \
-            "release/ResQ-${{ inputs.release_tag || github.ref_name }}-release.apk"
+            "release/ResQ-${RELEASE_TAG}-release.apk"
+          cp build/app/outputs/bundle/release/app-release.aab \
+            "release/ResQ-${RELEASE_TAG}-release.aab"
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v5
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: android-apk
-          path: release/*.apk
+          name: android-release
+          path: |
+            release/*.apk
+            release/*.aab
           if-no-files-found: error
+          retention-days: 14
 
   build-ios:
     name: Build iOS IPA
+    needs: validate
     runs-on: macos-26
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: "3.47.4"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Run tests
-        run: flutter test
 
       # --- Optional real code signing -----------------------------------------------------
       # Configure these repo secrets to produce a properly signed, TestFlight-ready .ipa
@@ -157,9 +234,20 @@ jobs:
       - name: Determine signing mode
         id: signing
         env:
-          HAS_CERT: ${{ secrets.IOS_BUILD_CERTIFICATE_BASE64 }}
+          CERTIFICATE: ${{ secrets.IOS_BUILD_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_BUILD_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_MOBILE_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+          TEAM_ID: ${{ secrets.IOS_EXPORT_TEAM_ID }}
         run: |
-          if [ -n "$HAS_CERT" ]; then
+          configured=0
+          for value in "$CERTIFICATE" "$CERTIFICATE_PASSWORD" "$PROFILE" "$KEYCHAIN_PASSWORD" "$TEAM_ID"; do
+            [ -n "$value" ] && configured=$((configured + 1))
+          done
+          if [ "$configured" -ne 0 ] && [ "$configured" -ne 5 ]; then
+            echo "Configure all five iOS signing secrets, or none of them." >&2
+            exit 1
+          elif [ "$configured" -eq 5 ]; then
             echo "signed=true" >> "$GITHUB_OUTPUT"
           else
             echo "signed=false" >> "$GITHUB_OUTPUT"
@@ -177,8 +265,8 @@ jobs:
           PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
-          echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
+          printf '%s' "$BUILD_CERTIFICATE_BASE64" | openssl base64 -d -A -out "$CERT_PATH"
+          printf '%s' "$PROVISIONING_PROFILE_BASE64" | openssl base64 -d -A -out "$PP_PATH"
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -221,7 +309,7 @@ jobs:
         run: |
           mkdir -p release
           cp build/ios/ipa/*.ipa \
-            "release/ResQ-${{ inputs.release_tag || github.ref_name }}.ipa"
+            "release/ResQ-${RELEASE_TAG}.ipa"
 
       - name: Build unsigned release IPA
         if: steps.signing.outputs.signed == 'false'
@@ -229,14 +317,15 @@ jobs:
           flutter build ios --release --no-codesign
           mkdir -p Payload release
           cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
-          zip -r "release/ResQ-${{ inputs.release_tag || github.ref_name }}-unsigned.ipa" Payload
+          zip -r "release/ResQ-${RELEASE_TAG}-unsigned.ipa" Payload
 
       - name: Upload IPA artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ios-ipa
           path: release/*.ipa
           if-no-files-found: error
+          retention-days: 14
 
   publish-release:
     name: Publish GitHub Release
@@ -245,17 +334,20 @@ jobs:
       - build-ios
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
 
     steps:
-      - name: Download Android APK artifact
-        uses: actions/download-artifact@v5
+      - name: Download Android release artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: android-apk
+          name: android-release
           path: release
 
       - name: Download iOS artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: ios-ipa
           path: release
@@ -264,9 +356,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create \
-            "${{ inputs.release_tag || github.ref_name }}" \
-            release/* \
-            --repo "${{ github.repository }}" \
-            --title "${{ inputs.release_name || github.ref_name }}" \
-            --notes "ResQ Android APK + iOS IPA - ${{ inputs.release_tag || github.ref_name }}"
+          cd release
+          sha256sum ./* > SHA256SUMS.txt
+
+          if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; replacing its build assets."
+            gh release upload \
+              "$RELEASE_TAG" \
+              ./* \
+              --repo "${{ github.repository }}" \
+              --clobber
+          else
+            gh release create \
+              "$RELEASE_TAG" \
+              ./* \
+              --repo "${{ github.repository }}" \
+              --target "${{ github.sha }}" \
+              --title "$RELEASE_NAME" \
+              --generate-notes
+          fi
