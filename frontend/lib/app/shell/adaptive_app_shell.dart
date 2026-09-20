@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/auth_providers.dart';
 import '../../features/family/presentation/family_screen.dart';
 import '../../features/home/presentation/home_dashboard.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/notifications/application/notifications_providers.dart';
 import '../../features/places/presentation/places_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/reports/presentation/report_screen.dart';
@@ -179,7 +182,7 @@ class _Sidebar extends StatelessWidget {
   }
 }
 
-class ResQPageHeader extends StatelessWidget {
+class ResQPageHeader extends ConsumerWidget {
   const ResQPageHeader({
     super.key,
     required this.title,
@@ -194,8 +197,12 @@ class ResQPageHeader extends StatelessWidget {
   final VoidCallback? onNotifications;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final strings = AppLocalizations.of(context);
+    final uid = ref.watch(currentRegisteredUserIdProvider);
+    final unread = uid == null
+        ? 0
+        : ref.watch(unreadNotificationsProvider(uid));
     return Row(
       children: [
         IconButton.filledTonal(
@@ -237,10 +244,12 @@ class ResQPageHeader extends StatelessWidget {
                   builder: (_) => const NotificationsScreen(),
                 ),
               ),
-          icon: const Badge(
-            smallSize: 8,
-            child: Icon(Icons.notifications_none_rounded),
-          ),
+          icon: unread == 0
+              ? const Icon(Icons.notifications_none_rounded)
+              : Badge.count(
+                  count: unread > 99 ? 99 : unread,
+                  child: const Icon(Icons.notifications_none_rounded),
+                ),
         ),
       ],
     );

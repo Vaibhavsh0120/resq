@@ -277,7 +277,7 @@ class _BrandPanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const ResQBrandMark(size: 64),
+              const ResQBrandMark(size: 64, showWordmark: true),
               const SizedBox(height: AppSpacing.lg),
               Text(
                 'Safety feels better when you are prepared.',

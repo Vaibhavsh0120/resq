@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     ai_voice_model: str = "gpt-realtime-2.1"
     firebase_project_id: str = "resq-106ed"
     allowed_origins: str = "http://localhost:3000,http://localhost:8080"
+    app_universal_link_base: str = "https://resq.app/invite"
 
     @property
     def cors_origins(self) -> list[str]:

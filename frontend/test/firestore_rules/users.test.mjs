@@ -110,3 +110,19 @@ test('undeclared future collections are denied by default', async () => {
   const db = passwordUser('owner').firestore();
   await assertFails(setDoc(doc(db, 'futureCollection', 'item-1'), { ownerId: 'owner' }));
 });
+
+test('notification owners can mark read but cannot rewrite alert content', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'users', 'owner', 'notifications', 'notice-1'), {
+      title: 'Emergency SOS',
+      body: 'A Circle member needs help.',
+      severity: 'critical',
+      read: false,
+    });
+  });
+  const db = passwordUser('owner').firestore();
+  const notification = doc(db, 'users', 'owner', 'notifications', 'notice-1');
+
+  await assertSucceeds(updateDoc(notification, { read: true, readAt: serverTimestamp() }));
+  await assertFails(updateDoc(notification, { title: 'Rewritten alert' }));
+});

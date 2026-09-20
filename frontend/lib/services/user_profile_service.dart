@@ -65,11 +65,22 @@ class UserProfileService {
   }
 
   Future<void> saveFamilyCircle(String uid, FamilyCircle circle) async {
-    await _doc(uid).set({
+    final batch = _db.batch();
+    batch.set(_doc(uid), {
       'familyCircle': circle.toMap(),
       'resumeStep': 4,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    for (final member in circle.members) {
+      batch.set(_doc(uid).collection('emergencyContacts').doc(member.id), {
+        'name': member.name,
+        'relationship': member.relationship,
+        'phoneNumber': member.phoneNumber ?? '',
+        'source': 'onboarding',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+    await batch.commit();
   }
 
   Future<void> saveHomeLocation(String uid, HomeLocation location) async {

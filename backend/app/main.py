@@ -3,7 +3,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api.routes import ai, health, reports
+from .api.routes import ai, circles, devices, health, reports, sos
 from .config import get_settings
 
 settings = get_settings()
@@ -27,3 +27,6 @@ async def request_id(request: Request, call_next):
 app.include_router(health.router, prefix="/v1")
 app.include_router(ai.router, prefix="/v1")
 app.include_router(reports.router, prefix="/v1")
+app.include_router(circles.router, prefix="/v1")
+app.include_router(sos.router, prefix="/v1")
+app.include_router(devices.router, prefix="/v1")

@@ -1,17 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../app/providers/auth_providers.dart';
 import '../../../app/shell/adaptive_app_shell.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../updates/application/alerts_providers.dart';
+import '../application/family_providers.dart';
+import '../domain/family_models.dart';
 import 'family_member_screen.dart';
 
-class FamilyScreen extends StatelessWidget {
+class FamilyScreen extends ConsumerWidget {
   const FamilyScreen({super.key, required this.isGuest});
 
   final bool isGuest;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final uid = isGuest ? null : ref.watch(currentUserIdProvider);
+    if (uid == null) {
+      return const _FamilyMessage(
+        icon: Icons.lock_outline_rounded,
+        title: 'Sign in to use Family Circle',
+        message: 'A registered account protects invitations, check-ins, and shared locations.',
+      );
+    }
+
+    ref.watch(familyContactMigrationProvider(uid));
+
+    final circleId = ref.watch(familyCircleIdProvider(uid));
+    final contacts = ref.watch(emergencyContactsProvider(uid));
+    final alerts = ref.watch(activeAlertsProvider).value ?? const [];
     return ListView(
       key: const PageStorageKey('family-scroll'),
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -21,26 +42,114 @@ class FamilyScreen extends StatelessWidget {
           subtitle: 'Your household safety circle',
         ),
         const SizedBox(height: AppSpacing.xl),
+        circleId.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => const _FamilyMessage(
+            icon: Icons.cloud_off_rounded,
+            title: 'Family Circle is unavailable',
+            message: 'Check your connection and try again.',
+          ),
+          data: (id) => id == null
+              ? _NoCircle(contacts: contacts)
+              : _ConnectedCircle(
+                  uid: uid,
+                  circleId: id,
+                  activeEventId: alerts.isEmpty ? null : alerts.first.id,
+                  contacts: contacts,
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ConnectedCircle extends ConsumerStatefulWidget {
+  const _ConnectedCircle({
+    required this.uid,
+    required this.circleId,
+    required this.activeEventId,
+    required this.contacts,
+  });
+
+  final String uid;
+  final String circleId;
+  final String? activeEventId;
+  final AsyncValue<List<EmergencyContact>> contacts;
+
+  @override
+  ConsumerState<_ConnectedCircle> createState() => _ConnectedCircleState();
+}
+
+class _ConnectedCircleState extends ConsumerState<_ConnectedCircle> {
+  bool _checkingIn = false;
+
+  Future<void> _checkIn() async {
+    setState(() => _checkingIn = true);
+    try {
+      await ref
+          .read(familyRepositoryProvider)
+          .checkIn(
+            SafetyCheckIn(
+              circleId: widget.circleId,
+              userId: widget.uid,
+              safe: true,
+              eventId: widget.activeEventId,
+            ),
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your Circle can now see that you are safe.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _checkingIn = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final members = ref.watch(circleMembersProvider(widget.circleId));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         FilledButton.icon(
-          onPressed: isGuest ? null : () {},
-          icon: const Icon(Icons.health_and_safety_rounded),
-          label: Text(isGuest ? 'Sign in to check in' : "I'm safe — check in"),
+          onPressed: widget.activeEventId == null || _checkingIn
+              ? null
+              : _checkIn,
+          icon: _checkingIn
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.health_and_safety_rounded),
+          label: Text(
+            widget.activeEventId == null
+                ? 'Check-ins activate during emergencies'
+                : "I'm safe — check in",
+          ),
         ),
         const SizedBox(height: AppSpacing.lg),
         AppSectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('My Circle', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: AppSpacing.md),
-              const _MemberRow(
-                name: 'Ananya',
-                detail: 'Safe • checked in 18 min ago',
+              Text(
+                'Accepted Circle members',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-              const Divider(),
-              const _MemberRow(
-                name: 'Rahul',
-                detail: 'Location shared • 1.2 km away',
+              const SizedBox(height: AppSpacing.sm),
+              members.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => const Text('Members could not be loaded.'),
+                data: (items) => items.isEmpty
+                    ? const Text('No accepted members yet.')
+                    : Column(
+                        children: items
+                            .map((member) => _MemberRow(member: member))
+                            .toList(),
+                      ),
               ),
               const Divider(),
               ListTile(
@@ -49,34 +158,288 @@ class FamilyScreen extends StatelessWidget {
                   child: Icon(Icons.person_add_alt_1_rounded),
                 ),
                 title: const Text('Invite family member'),
-                subtitle: const Text('Share a secure, expiring invitation'),
+                subtitle: const Text(
+                  'Create a secure invitation for a registered account',
+                ),
                 trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: isGuest ? null : () {},
+                onTap: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => _InviteSheet(circleId: widget.circleId),
+                ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: AppSpacing.lg),
+        _EmergencyContacts(contacts: widget.contacts),
       ],
     );
   }
 }
 
-class _MemberRow extends StatelessWidget {
-  const _MemberRow({required this.name, required this.detail});
-  final String name;
-  final String detail;
+class _NoCircle extends StatelessWidget {
+  const _NoCircle({required this.contacts});
+  final AsyncValue<List<EmergencyContact>> contacts;
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _FamilyMessage(
+          icon: Icons.group_add_outlined,
+          title: 'No household Circle yet',
+          message: 'Create or accept a secure invitation to start household check-ins.',
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _EmergencyContacts(contacts: contacts),
+      ],
+    );
+  }
+}
+
+class _EmergencyContacts extends StatelessWidget {
+  const _EmergencyContacts({required this.contacts});
+  final AsyncValue<List<EmergencyContact>> contacts;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Emergency contacts',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Contacts are not Circle members until they accept an invitation.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          contacts.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => const Text('Contacts could not be loaded.'),
+            data: (items) => items.isEmpty
+                ? const Text('No emergency contacts saved.')
+                : Column(
+                    children: items
+                        .map(
+                          (contact) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const CircleAvatar(
+                              child: Icon(Icons.contact_phone_rounded),
+                            ),
+                            title: Text(contact.name),
+                            subtitle: Text(
+                              '${contact.relationship} • ${contact.phoneNumber}',
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MemberRow extends StatelessWidget {
+  const _MemberRow({required this.member});
+  final CircleMember member;
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = member.lastCheckInSafe == true
+        ? 'Safe • last check-in recorded'
+        : member.sharesLocation
+        ? 'Location sharing enabled'
+        : 'No recent check-in';
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(child: Text(name.characters.first)),
-      title: Text(name),
+      leading: CircleAvatar(child: Text(member.displayName.characters.first)),
+      title: Text(member.displayName),
       subtitle: Text(detail),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => FamilyMemberScreen(name: name, status: detail),
+          builder: (_) => FamilyMemberScreen(member: member),
+        ),
+      ),
+    );
+  }
+}
+
+class _FamilyMessage extends StatelessWidget {
+  const _FamilyMessage({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 44),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            Text(message, textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InviteSheet extends ConsumerStatefulWidget {
+  const _InviteSheet({required this.circleId});
+  final String circleId;
+
+  @override
+  ConsumerState<_InviteSheet> createState() => _InviteSheetState();
+}
+
+class _InviteSheetState extends ConsumerState<_InviteSheet> {
+  final _contact = TextEditingController();
+  bool _creating = false;
+  String? _inviteUrl;
+
+  Future<void> _create() async {
+    final contact = _contact.text.trim();
+    if (contact.isEmpty) return;
+    setState(() => _creating = true);
+    try {
+      final url = await ref
+          .read(circleApiProvider)
+          .createInvite(circleId: widget.circleId, contact: contact);
+      if (!mounted) return;
+      setState(() => _inviteUrl = url);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  Future<void> _share(BuildContext buttonContext) async {
+    final url = _inviteUrl;
+    if (url == null) return;
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    await SharePlus.instance.share(
+      ShareParams(
+        subject: 'Join my ResQ Family Circle',
+        text: 'Join my household safety Circle in ResQ: $url',
+        sharePositionOrigin: box == null
+            ? null
+            : box.localToGlobal(Offset.zero) & box.size,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _contact.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          MediaQuery.viewInsetsOf(context).bottom + AppSpacing.lg,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Invite to Family Circle',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            const Text(
+              'The secure link expires after 48 hours and requires a registered ResQ account.',
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (_inviteUrl == null) ...[
+              TextField(
+                controller: _contact,
+                autofocus: true,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _creating ? null : _create(),
+                decoration: const InputDecoration(
+                  labelText: 'Phone number or email',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              FilledButton.icon(
+                onPressed: _creating ? null : _create,
+                icon: _creating
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.qr_code_2_rounded),
+                label: const Text('Create secure invitation'),
+              ),
+            ] else ...[
+              Center(
+                child: Semantics(
+                  label: 'QR code for the ResQ Family Circle invitation',
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppRadius.base),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: QrImageView(
+                        data: _inviteUrl!,
+                        size: 210,
+                        semanticsLabel: 'ResQ Family Circle invitation QR code',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const Text(
+                'Ask your family member to scan this code, or share the secure link.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Builder(
+                builder: (buttonContext) => FilledButton.icon(
+                  onPressed: () => _share(buttonContext),
+                  icon: const Icon(Icons.ios_share_rounded),
+                  label: const Text('Share invitation link'),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

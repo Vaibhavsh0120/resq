@@ -119,6 +119,20 @@ flutter test
 
 Both commands should complete without errors.
 
+### Push-notification development
+
+Android notification permission and the web messaging service worker are included.
+For web push, create a Web Push certificate in Firebase and pass its public VAPID
+key at build or run time:
+
+```shell
+flutter run -d chrome --dart-define=RESQ_FCM_VAPID_KEY=<public-vapid-key>
+```
+
+The app registers device tokens only after a registered user explicitly enables
+push alerts. iOS builds additionally require the Push Notifications capability,
+an APNs key uploaded to Firebase, and the correct signing profile in Xcode.
+
 ### Use the existing Firebase development project
 
 The repository includes the public client configuration for the existing Firebase

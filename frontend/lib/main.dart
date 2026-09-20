@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,16 @@ import 'services/app_platform_info.dart';
 import 'services/locale_controller.dart';
 import 'services/theme_controller.dart';
 import 'theme/app_theme.dart';
+import 'features/notifications/data/push_notification_service.dart';
+
+@pragma('vm:entry-point')
+Future<void> resqMessagingBackgroundHandler(RemoteMessage message) async {
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +31,7 @@ Future<void> main() async {
   AppPlatformInfo.resolve();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  FirebaseMessaging.onBackgroundMessage(resqMessagingBackgroundHandler);
 
   final themeController = await ThemeController.load();
   final localeController = await LocaleController.load();
@@ -32,6 +44,7 @@ Future<void> main() async {
       ),
     ),
   );
+  await PushNotificationService.instance.configure();
 }
 
 class ResQApp extends StatelessWidget {

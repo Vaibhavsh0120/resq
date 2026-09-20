@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class UserContext(BaseModel):
@@ -64,3 +64,41 @@ class IncidentReport(BaseModel):
     status: Literal["pending"] = "pending"
     hazard: HazardType
     created_at: datetime
+
+
+class CircleInviteCreate(BaseModel):
+    intended_name: str | None = Field(default=None, max_length=120)
+    phone_number: str | None = Field(default=None, max_length=32)
+    email: str | None = Field(default=None, max_length=320)
+
+    @model_validator(mode="after")
+    def has_contact(self):
+        if not (self.phone_number or self.email):
+            raise ValueError("A phone number or email is required")
+        return self
+
+
+class CircleInvite(BaseModel):
+    id: str
+    invite_url: str
+    expires_at: datetime
+
+
+class CircleInviteAccepted(BaseModel):
+    circle_id: str
+    accepted: bool = True
+
+
+class SosFanoutResult(BaseModel):
+    notification_count: int
+    push_success_count: int
+    push_failure_count: int
+
+
+class DeviceRegistration(BaseModel):
+    token: str = Field(min_length=8, max_length=4096)
+    platform: Literal["android", "ios", "macos", "web"]
+
+
+class DeviceRegistrationResult(BaseModel):
+    registered: bool = True

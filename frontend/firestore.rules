@@ -82,7 +82,10 @@ service cloud.firestore {
       }
 
       match /notifications/{notificationId} {
-        allow read, update, delete: if owns(userId);
+        allow read, delete: if owns(userId);
+        allow update: if owns(userId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['read', 'readAt']);
         allow create: if false;
       }
     }
