@@ -79,11 +79,13 @@ firebase-export-*/
 .env
 .env.*
 !.env.example
+!.env.production.example
 !.env.age
 *service-account*.json
 *service_account*.json
 serviceAccountKey.json
 credentials.json
+**/.local/
 *.pem
 *.p8
 *.p12

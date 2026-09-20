@@ -3,15 +3,35 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../core/config/app_config.dart';
+
 class CircleApi {
   CircleApi({http.Client? client}) : _client = client ?? http.Client();
 
-  static const _baseUrl = String.fromEnvironment(
-    'RESQ_API_BASE_URL',
-    defaultValue: 'http://localhost:8080',
-  );
+  static const _baseUrl = AppConfig.apiBaseUrl;
 
   final http.Client _client;
+
+  Future<String> createCircle() async {
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (token == null ||
+        FirebaseAuth.instance.currentUser?.isAnonymous == true) {
+      throw const CircleApiException(
+        'Sign in with a registered account to create a Family Circle.',
+      );
+    }
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/v1/circles'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw const CircleApiException(
+        'Your Family Circle could not be created.',
+      );
+    }
+    return (jsonDecode(response.body) as Map<String, dynamic>)['circle_id']
+        as String;
+  }
 
   Future<String> createInvite({
     required String circleId,

@@ -8,25 +8,29 @@ void main() {
   testWidgets(
     'uses bottom navigation on compact screens and sidebar on wide screens',
     (tester) async {
-      await pumpTestApp(
-        tester,
-        const AdaptiveAppShell(isGuest: false),
-        size: const Size(390, 844),
-      );
-      expect(find.byType(NavigationBar), findsOneWidget);
-      expect(find.byType(NavigationRail), findsNothing);
-
-      await pumpTestApp(
-        tester,
-        const AdaptiveAppShell(isGuest: false),
-        size: const Size(1194, 834),
-      );
-      expect(
-        MediaQuery.sizeOf(tester.element(find.byType(AdaptiveAppShell))),
-        const Size(1194, 834),
-      );
-      expect(find.byType(NavigationRail), findsOneWidget);
-      expect(find.byType(NavigationBar), findsNothing);
+      const targets = <(Size, bool)>[
+        (Size(390, 844), false),
+        (Size(834, 1194), false),
+        (Size(1194, 834), true),
+        (Size(1440, 900), true),
+        (Size(1728, 1000), true),
+      ];
+      for (final (size, usesSidebar) in targets) {
+        await pumpTestApp(
+          tester,
+          const AdaptiveAppShell(isGuest: false),
+          size: size,
+        );
+        expect(
+          find.byType(NavigationRail),
+          usesSidebar ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.byType(NavigationBar),
+          usesSidebar ? findsNothing : findsOneWidget,
+        );
+        expect(tester.takeException(), isNull, reason: 'shell at $size');
+      }
     },
   );
 

@@ -1,13 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../core/config/app_config.dart';
+
 class SosApi {
   SosApi({http.Client? client}) : _client = client ?? http.Client();
 
-  static const _baseUrl = String.fromEnvironment(
-    'RESQ_API_BASE_URL',
-    defaultValue: 'http://localhost:8080',
-  );
+  static const _baseUrl = AppConfig.apiBaseUrl;
 
   final http.Client _client;
 

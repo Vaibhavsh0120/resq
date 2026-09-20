@@ -1,0 +1,7 @@
+{
+  "RESQ_APP_ENV": "production",
+  "RESQ_API_BASE_URL": "https://api.example.com",
+  "RESQ_USE_FIREBASE_EMULATORS": false,
+  "RESQ_FIREBASE_EMULATOR_HOST": "localhost",
+  "RESQ_FCM_VAPID_KEY": "YOUR_PUBLIC_WEB_PUSH_VAPID_KEY"
+}

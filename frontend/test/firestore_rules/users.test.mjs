@@ -12,6 +12,7 @@ import {
   getDocs,
   serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
 } from 'firebase/firestore';
 
@@ -125,4 +126,77 @@ test('notification owners can mark read but cannot rewrite alert content', async
 
   await assertSucceeds(updateDoc(notification, { read: true, readAt: serverTimestamp() }));
   await assertFails(updateDoc(notification, { title: 'Rewritten alert' }));
+});
+
+test('only accepted Circle members can read household data', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'householdCircles', 'home'), { name: 'Home' });
+    await setDoc(doc(db, 'householdCircles', 'home', 'members', 'accepted'), {
+      accepted: true,
+    });
+    await setDoc(doc(db, 'householdCircles', 'home', 'members', 'pending'), {
+      accepted: false,
+    });
+  });
+
+  await assertSucceeds(
+    getDoc(doc(passwordUser('accepted').firestore(), 'householdCircles', 'home')),
+  );
+  await assertFails(
+    getDoc(doc(passwordUser('pending').firestore(), 'householdCircles', 'home')),
+  );
+  const acceptedMember = doc(
+    passwordUser('accepted').firestore(),
+    'householdCircles',
+    'home',
+    'members',
+    'accepted',
+  );
+  await assertSucceeds(
+    updateDoc(acceptedMember, {
+      lastCheckInSafe: true,
+      lastCheckInAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(updateDoc(acceptedMember, { role: 'owner' }));
+});
+
+test('location shares require accepted membership and expire within 24 hours', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'householdCircles', 'home'), { name: 'Home' });
+    await setDoc(doc(db, 'householdCircles', 'home', 'members', 'owner'), {
+      accepted: true,
+    });
+    await setDoc(doc(db, 'householdCircles', 'home', 'members', 'pending'), {
+      accepted: false,
+    });
+  });
+  const validShare = (uid, hours) => ({
+    circleId: 'home',
+    ownerId: uid,
+    location: { latitude: 28.6139, longitude: 77.2090 },
+    capturedAt: serverTimestamp(),
+    expiresAt: Timestamp.fromDate(new Date(Date.now() + hours * 60 * 60 * 1000)),
+  });
+
+  await assertSucceeds(
+    setDoc(
+      doc(passwordUser('owner').firestore(), 'locationShares', 'valid'),
+      validShare('owner', 1),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(passwordUser('pending').firestore(), 'locationShares', 'pending'),
+      validShare('pending', 1),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(passwordUser('owner').firestore(), 'locationShares', 'too-long'),
+      validShare('owner', 48),
+    ),
+  );
 });

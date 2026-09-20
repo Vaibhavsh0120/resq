@@ -17,7 +17,8 @@ service cloud.firestore {
 
     function isCircleMember(circleId) {
       return isRegisteredAccount()
-        && exists(/databases/$(database)/documents/householdCircles/$(circleId)/members/$(request.auth.uid));
+        && exists(/databases/$(database)/documents/householdCircles/$(circleId)/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/householdCircles/$(circleId)/members/$(request.auth.uid)).data.accepted == true;
     }
 
     function hasValidProfileShape(data) {
@@ -132,7 +133,12 @@ service cloud.firestore {
 
       match /members/{memberId} {
         allow read: if isCircleMember(circleId);
-        allow write: if false;
+        allow create, delete: if false;
+        allow update: if isCircleMember(circleId)
+          && memberId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['lastCheckInSafe', 'lastCheckInAt'])
+          && request.resource.data.lastCheckInSafe is bool;
       }
 
       match /checkIns/{checkInId} {
@@ -150,12 +156,24 @@ service cloud.firestore {
     match /locationShares/{shareId} {
       allow create: if isRegisteredAccount()
         && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.expiresAt > request.time;
+        && isCircleMember(request.resource.data.circleId)
+        && request.resource.data.keys().hasOnly([
+          'circleId', 'ownerId', 'location', 'capturedAt', 'expiresAt'
+        ])
+        && request.resource.data.location.latitude is number
+        && request.resource.data.location.longitude is number
+        && request.resource.data.location.latitude >= -90
+        && request.resource.data.location.latitude <= 90
+        && request.resource.data.location.longitude >= -180
+        && request.resource.data.location.longitude <= 180
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(24, 'h');
       allow read: if isRegisteredAccount()
         && resource.data.expiresAt > request.time
         && (resource.data.ownerId == request.auth.uid
           || isCircleMember(resource.data.circleId));
-      allow update, delete: if isRegisteredAccount()
+      allow update: if false;
+      allow delete: if isRegisteredAccount()
         && resource.data.ownerId == request.auth.uid;
     }
 

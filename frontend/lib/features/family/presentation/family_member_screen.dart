@@ -1,14 +1,23 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
 import '../domain/family_models.dart';
+import '../data/family_repository.dart';
 
 class FamilyMemberScreen extends StatelessWidget {
-  const FamilyMemberScreen({super.key, required this.member});
+  const FamilyMemberScreen({
+    super.key,
+    required this.member,
+    required this.circleId,
+  });
 
   final CircleMember member;
+  final String circleId;
 
   Future<void> _openDeviceAction(BuildContext context, String scheme) async {
     final opened = await launchUrl(
@@ -32,7 +41,9 @@ class FamilyMemberScreen extends StatelessWidget {
           CircleAvatar(
             radius: 42,
             child: Text(
-              member.displayName.characters.first,
+              member.displayName.trim().isEmpty
+                  ? '?'
+                  : member.displayName.characters.first,
               style: const TextStyle(fontSize: 30),
             ),
           ),
@@ -69,15 +80,11 @@ class FamilyMemberScreen extends StatelessWidget {
               _Action(
                 icon: Icons.location_on_rounded,
                 label: 'Locate',
-                onTap: member.sharesLocation
-                    ? () => ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'No active location share is available.',
-                          ),
-                        ),
-                      )
-                    : null,
+                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('The latest active share is shown below.'),
+                  ),
+                ),
               ),
             ],
           ),
@@ -91,21 +98,69 @@ class FamilyMemberScreen extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Container(
-                  height: 180,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.secondaryContainer,
-                    borderRadius: BorderRadius.circular(AppRadius.base),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.location_on_rounded, size: 42),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  member.sharesLocation
-                      ? 'Waiting for an active, unexpired location share.'
-                      : 'Location sharing is off for this member.',
+                StreamBuilder<LocationShare?>(
+                  stream: FirestoreFamilyRepository(FirebaseFirestore.instance)
+                      .watchActiveLocation(
+                        circleId: circleId,
+                        memberId: member.uid,
+                      ),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const SizedBox(
+                        height: 180,
+                        child: Center(
+                          child: Text('No active location share is available.'),
+                        ),
+                      );
+                    }
+                    final share = snapshot.data!;
+                    final point = LatLng(share.latitude, share.longitude);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(AppRadius.base),
+                          child: SizedBox(
+                            height: 180,
+                            child: FlutterMap(
+                              options: MapOptions(
+                                initialCenter: point,
+                                initialZoom: 14,
+                                interactionOptions: const InteractionOptions(
+                                  flags:
+                                      InteractiveFlag.pinchZoom |
+                                      InteractiveFlag.drag,
+                                ),
+                              ),
+                              children: [
+                                TileLayer(
+                                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                  userAgentPackageName: 'com.vaibhav.resq',
+                                ),
+                                MarkerLayer(
+                                  markers: [
+                                    Marker(
+                                      point: point,
+                                      width: 48,
+                                      height: 48,
+                                      child: const Icon(
+                                        Icons.location_on_rounded,
+                                        size: 42,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Expires ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(share.expiresAt.toLocal()))}',
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),

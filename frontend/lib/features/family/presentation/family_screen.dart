@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -7,7 +9,9 @@ import '../../../app/providers/auth_providers.dart';
 import '../../../app/shell/adaptive_app_shell.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../updates/application/alerts_providers.dart';
+import '../../profile/data/app_settings_repository.dart';
 import '../application/family_providers.dart';
 import '../domain/family_models.dart';
 import 'family_member_screen.dart';
@@ -19,6 +23,7 @@ class FamilyScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = AppLocalizations.of(context);
     final uid = isGuest ? null : ref.watch(currentUserIdProvider);
     if (uid == null) {
       return const _FamilyMessage(
@@ -33,14 +38,21 @@ class FamilyScreen extends ConsumerWidget {
     final circleId = ref.watch(familyCircleIdProvider(uid));
     final contacts = ref.watch(emergencyContactsProvider(uid));
     final alerts = ref.watch(activeAlertsProvider).value ?? const [];
+    final emergencyAlerts = alerts
+        .where(
+          (alert) => const {
+            'critical',
+            'warning',
+            'extreme',
+            'severe',
+          }.contains(alert.severity.toLowerCase()),
+        )
+        .toList(growable: false);
     return ListView(
       key: const PageStorageKey('family-scroll'),
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
       children: [
-        const ResQPageHeader(
-          title: 'Family',
-          subtitle: 'Your household safety circle',
-        ),
+        ResQPageHeader(title: strings.family, subtitle: strings.familySubtitle),
         const SizedBox(height: AppSpacing.xl),
         circleId.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -54,7 +66,9 @@ class FamilyScreen extends ConsumerWidget {
               : _ConnectedCircle(
                   uid: uid,
                   circleId: id,
-                  activeEventId: alerts.isEmpty ? null : alerts.first.id,
+                  activeEventId: emergencyAlerts.isEmpty
+                      ? null
+                      : emergencyAlerts.first.id,
                   contacts: contacts,
                 ),
         ),
@@ -82,6 +96,69 @@ class _ConnectedCircle extends ConsumerStatefulWidget {
 
 class _ConnectedCircleState extends ConsumerState<_ConnectedCircle> {
   bool _checkingIn = false;
+  bool _enablingDaily = false;
+  bool _sharingLocation = false;
+
+  Future<void> _shareLocation() async {
+    setState(() => _sharingLocation = true);
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw StateError('Location permission is required.');
+      }
+      final position = await Geolocator.getCurrentPosition();
+      await ref
+          .read(familyRepositoryProvider)
+          .shareLocation(
+            circleId: widget.circleId,
+            ownerId: widget.uid,
+            latitude: position.latitude,
+            longitude: position.longitude,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your Circle can see this location for one hour.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Location could not be shared. Check permission and try again.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sharingLocation = false);
+    }
+  }
+
+  Future<void> _enableDailyCheckIns() async {
+    final eventId = widget.activeEventId;
+    if (eventId == null) return;
+    setState(() => _enablingDaily = true);
+    try {
+      await AppSettingsRepository(FirebaseFirestore.instance)
+          .activateEmergencyCheckIn(uid: widget.uid, eventId: eventId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Daily emergency check-ins are set for 09:00.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _enablingDaily = false);
+    }
+  }
 
   Future<void> _checkIn() async {
     setState(() => _checkingIn = true);
@@ -100,6 +177,14 @@ class _ConnectedCircleState extends ConsumerState<_ConnectedCircle> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Your Circle can now see that you are safe.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your check-in could not be saved. Try again.'),
           ),
         );
       }
@@ -130,6 +215,30 @@ class _ConnectedCircleState extends ConsumerState<_ConnectedCircle> {
                 : "I'm safe — check in",
           ),
         ),
+        if (widget.activeEventId != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          OutlinedButton.icon(
+            onPressed: _enablingDaily ? null : _enableDailyCheckIns,
+            icon: _enablingDaily
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.schedule_rounded),
+            label: const Text('Enable daily check-ins for this emergency'),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.sm),
+        OutlinedButton.icon(
+          onPressed: _sharingLocation ? null : _shareLocation,
+          icon: _sharingLocation
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.location_on_outlined),
+          label: const Text('Share my location for 1 hour'),
+        ),
         const SizedBox(height: AppSpacing.lg),
         AppSectionCard(
           child: Column(
@@ -147,7 +256,12 @@ class _ConnectedCircleState extends ConsumerState<_ConnectedCircle> {
                     ? const Text('No accepted members yet.')
                     : Column(
                         children: items
-                            .map((member) => _MemberRow(member: member))
+                            .map(
+                              (member) => _MemberRow(
+                                member: member,
+                                circleId: widget.circleId,
+                              ),
+                            )
                             .toList(),
                       ),
               ),
@@ -178,9 +292,35 @@ class _ConnectedCircleState extends ConsumerState<_ConnectedCircle> {
   }
 }
 
-class _NoCircle extends StatelessWidget {
+class _NoCircle extends ConsumerStatefulWidget {
   const _NoCircle({required this.contacts});
   final AsyncValue<List<EmergencyContact>> contacts;
+
+  @override
+  ConsumerState<_NoCircle> createState() => _NoCircleState();
+}
+
+class _NoCircleState extends ConsumerState<_NoCircle> {
+  bool _creating = false;
+
+  Future<void> _createCircle() async {
+    setState(() => _creating = true);
+    try {
+      await ref.read(circleApiProvider).createCircle();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Your Family Circle is ready.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -192,8 +332,18 @@ class _NoCircle extends StatelessWidget {
           title: 'No household Circle yet',
           message: 'Create or accept a secure invitation to start household check-ins.',
         ),
+        FilledButton.icon(
+          onPressed: _creating ? null : _createCircle,
+          icon: _creating
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.group_add_rounded),
+          label: const Text('Create Family Circle'),
+        ),
         const SizedBox(height: AppSpacing.lg),
-        _EmergencyContacts(contacts: contacts),
+        _EmergencyContacts(contacts: widget.contacts),
       ],
     );
   }
@@ -248,8 +398,9 @@ class _EmergencyContacts extends StatelessWidget {
 }
 
 class _MemberRow extends StatelessWidget {
-  const _MemberRow({required this.member});
+  const _MemberRow({required this.member, required this.circleId});
   final CircleMember member;
+  final String circleId;
 
   @override
   Widget build(BuildContext context) {
@@ -260,13 +411,20 @@ class _MemberRow extends StatelessWidget {
         : 'No recent check-in';
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(child: Text(member.displayName.characters.first)),
+      leading: CircleAvatar(
+        child: Text(
+          member.displayName.trim().isEmpty
+              ? '?'
+              : member.displayName.characters.first,
+        ),
+      ),
       title: Text(member.displayName),
       subtitle: Text(detail),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => FamilyMemberScreen(member: member),
+          builder: (_) =>
+              FamilyMemberScreen(member: member, circleId: circleId),
         ),
       ),
     );

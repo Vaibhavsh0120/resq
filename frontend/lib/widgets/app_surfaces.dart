@@ -2,6 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
+class AppPageContent extends StatelessWidget {
+  const AppPageContent({super.key, required this.child, this.maxWidth = 920});
+
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
+    );
+  }
+}
+
 class AppBackground extends StatelessWidget {
   const AppBackground({super.key, required this.child});
   final Widget child;

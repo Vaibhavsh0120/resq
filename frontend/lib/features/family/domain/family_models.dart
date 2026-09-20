@@ -107,6 +107,32 @@ class SafetyCheckIn {
   };
 }
 
+class LocationShare {
+  const LocationShare({
+    required this.latitude,
+    required this.longitude,
+    required this.capturedAt,
+    required this.expiresAt,
+  });
+
+  final double latitude;
+  final double longitude;
+  final DateTime? capturedAt;
+  final DateTime expiresAt;
+
+  factory LocationShare.fromMap(Map<String, dynamic> map) {
+    final location = Map<String, dynamic>.from(
+      map['location'] as Map? ?? const {},
+    );
+    return LocationShare(
+      latitude: (location['latitude'] as num).toDouble(),
+      longitude: (location['longitude'] as num).toDouble(),
+      capturedAt: _dateTime(map['capturedAt']),
+      expiresAt: _dateTime(map['expiresAt']) ?? DateTime.now(),
+    );
+  }
+}
+
 class FamilySnapshot {
   const FamilySnapshot({
     this.circleId,

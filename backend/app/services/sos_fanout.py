@@ -34,16 +34,27 @@ def fan_out_sos(database, event_id: str, event: dict) -> tuple[int, int, int]:
             .document(event_id)
         )
         batch.set(notification_ref, payload)
-        for device in (
+        settings = (
             database.collection("users")
             .document(uid)
-            .collection("devices")
-            .where("enabled", "==", True)
-            .stream()
-        ):
-            token = (device.to_dict() or {}).get("token") or device.id
-            if token:
-                tokens.append(token)
+            .collection("settings")
+            .document("app")
+            .get()
+            .to_dict()
+            or {}
+        )
+        categories = settings.get("notificationCategories") or {}
+        if categories.get("circle", True):
+            for device in (
+                database.collection("users")
+                .document(uid)
+                .collection("devices")
+                .where("enabled", "==", True)
+                .stream()
+            ):
+                token = (device.to_dict() or {}).get("token") or device.id
+                if token:
+                    tokens.append(token)
 
     event_ref = database.collection("sosEvents").document(event_id)
     batch.update(

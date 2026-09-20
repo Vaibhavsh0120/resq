@@ -1,0 +1,7 @@
+{
+  "RESQ_APP_ENV": "development",
+  "RESQ_API_BASE_URL": "http://10.0.2.2:8080",
+  "RESQ_USE_FIREBASE_EMULATORS": true,
+  "RESQ_FIREBASE_EMULATOR_HOST": "10.0.2.2",
+  "RESQ_FCM_VAPID_KEY": ""
+}

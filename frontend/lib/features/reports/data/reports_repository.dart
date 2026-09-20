@@ -3,20 +3,24 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../core/config/app_config.dart';
+
 import '../domain/incident_report.dart';
 
 abstract interface class ReportsRepository {
   Future<String> submit(IncidentReportDraft report);
+  Future<void> uploadPhoto({
+    required String reportId,
+    required List<int> bytes,
+    required String filename,
+  });
 }
 
 class ApiReportsRepository implements ReportsRepository {
   ApiReportsRepository({http.Client? client})
     : _client = client ?? http.Client();
 
-  static const _baseUrl = String.fromEnvironment(
-    'RESQ_API_BASE_URL',
-    defaultValue: 'http://localhost:8080',
-  );
+  static const _baseUrl = AppConfig.apiBaseUrl;
 
   final http.Client _client;
 
@@ -40,6 +44,33 @@ class ApiReportsRepository implements ReportsRepository {
       );
     }
     return (jsonDecode(response.body) as Map<String, dynamic>)['id'] as String;
+  }
+
+  @override
+  Future<void> uploadPhoto({
+    required String reportId,
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (token == null) {
+      throw const ReportSubmissionException('Sign in to upload a photo.');
+    }
+    final request =
+        http.MultipartRequest(
+            'POST',
+            Uri.parse('$_baseUrl/v1/reports/$reportId/photo-upload'),
+          )
+          ..headers['Authorization'] = 'Bearer $token'
+          ..files.add(
+            http.MultipartFile.fromBytes('photo', bytes, filename: filename),
+          );
+    final response = await request.send();
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw const ReportSubmissionException(
+        'The report was saved, but its photo could not be uploaded. Try again.',
+      );
+    }
   }
 }
 

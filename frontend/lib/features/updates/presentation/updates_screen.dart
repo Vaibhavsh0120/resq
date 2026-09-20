@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/shell/adaptive_app_shell.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../../l10n/app_localizations.dart';
 import '../application/alerts_providers.dart';
 import '../domain/public_alert.dart';
 
@@ -12,6 +13,7 @@ class UpdatesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = AppLocalizations.of(context);
     final alerts = ref.watch(activeAlertsProvider);
     return RefreshIndicator(
       onRefresh: () async {
@@ -23,9 +25,9 @@ class UpdatesScreen extends ConsumerWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         children: [
-          const ResQPageHeader(
-            title: 'Updates',
-            subtitle: 'Verified alerts near you',
+          ResQPageHeader(
+            title: strings.updates,
+            subtitle: strings.updatesSubtitle,
           ),
           const SizedBox(height: AppSpacing.xl),
           Text(
@@ -72,7 +74,11 @@ class _AlertCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final language = Localizations.localeOf(context).languageCode;
-    final severe = {'extreme', 'severe'}.contains(alert.severity);
+    final severe = {
+      'critical',
+      'extreme',
+      'severe',
+    }.contains(alert.severity.toLowerCase());
     return AppSectionCard(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,7 +106,12 @@ class _AlertCard extends StatelessWidget {
                 ],
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '${alert.source} • ${_relativeIssued(alert.issuedAt)}',
+                  '${alert.severity.toUpperCase()} • ${alert.source} • ${_relativeIssued(alert.issuedAt)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Valid for ${_remaining(alert.expiresAt)}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -145,4 +156,14 @@ String _relativeIssued(DateTime issuedAt) {
   }
   if (difference.inHours < 24) return '${difference.inHours} hr ago';
   return '${difference.inDays} days ago';
+}
+
+String _remaining(DateTime expiresAt) {
+  final difference = expiresAt.difference(DateTime.now());
+  if (difference.isNegative) return 'expired';
+  if (difference.inMinutes < 60) {
+    return '${difference.inMinutes.clamp(1, 59)} min';
+  }
+  if (difference.inHours < 24) return '${difference.inHours} hr';
+  return '${difference.inDays} days';
 }

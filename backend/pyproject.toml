@@ -13,6 +13,10 @@ dependencies = [
   "firebase-admin>=7,<8",
   "openai>=2,<3",
   "httpx>=0.28,<1",
+  "python-multipart>=0.0.20,<1",
+  "pillow>=11,<13",
+  "boto3>=1.40,<2",
+  "feedparser>=6.0.12,<7",
 ]
 
 [project.optional-dependencies]

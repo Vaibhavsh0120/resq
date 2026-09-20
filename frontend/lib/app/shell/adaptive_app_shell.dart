@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../providers/auth_providers.dart';
 import '../../features/family/presentation/family_screen.dart';
 import '../../features/home/presentation/home_dashboard.dart';
-import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/notifications/application/notifications_providers.dart';
 import '../../features/places/presentation/places_screen.dart';
-import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/reports/presentation/report_screen.dart';
 import '../../features/updates/presentation/updates_screen.dart';
 import '../../l10n/app_localizations.dart';
-import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_surfaces.dart';
 import '../../widgets/brand_mark.dart';
@@ -19,16 +17,34 @@ import '../../widgets/brand_mark.dart';
 enum ResQDestination { home, updates, report, family, places }
 
 class AdaptiveAppShell extends StatefulWidget {
-  const AdaptiveAppShell({super.key, required this.isGuest});
+  const AdaptiveAppShell({
+    super.key,
+    required this.isGuest,
+    this.initialDestination = 'home',
+  });
 
   final bool isGuest;
+  final String initialDestination;
 
   @override
   State<AdaptiveAppShell> createState() => _AdaptiveAppShellState();
 }
 
 class _AdaptiveAppShellState extends State<AdaptiveAppShell> {
-  var _selected = ResQDestination.home;
+  late ResQDestination _selected = _parseDestination(widget.initialDestination);
+
+  static ResQDestination _parseDestination(String value) =>
+      ResQDestination.values.firstWhere(
+        (destination) => destination.name == value,
+        orElse: () => ResQDestination.home,
+      );
+
+  @override
+  void didUpdateWidget(covariant AdaptiveAppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final destination = _parseDestination(widget.initialDestination);
+    if (destination != _selected) _selected = destination;
+  }
 
   static const _icons = [
     Icons.home_rounded,
@@ -44,7 +60,7 @@ class _AdaptiveAppShellState extends State<AdaptiveAppShell> {
       _showGuestGate();
       return;
     }
-    setState(() => _selected = destination);
+    context.go('/app/${destination.name}');
   }
 
   void _showGuestGate() {
@@ -207,16 +223,7 @@ class ResQPageHeader extends ConsumerWidget {
       children: [
         IconButton.filledTonal(
           tooltip: strings.profileSettings,
-          onPressed:
-              onProfile ??
-              () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ProfileScreen(
-                    isGuest:
-                        AuthService.instance.currentUser?.isAnonymous ?? false,
-                  ),
-                ),
-              ),
+          onPressed: onProfile ?? () => context.push('/profile'),
           icon: const Icon(Icons.person_rounded),
         ),
         const SizedBox(width: AppSpacing.md),
@@ -237,13 +244,7 @@ class ResQPageHeader extends ConsumerWidget {
         ),
         IconButton(
           tooltip: strings.notifications,
-          onPressed:
-              onNotifications ??
-              () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const NotificationsScreen(),
-                ),
-              ),
+          onPressed: onNotifications ?? () => context.push('/notifications'),
           icon: unread == 0
               ? const Icon(Icons.notifications_none_rounded)
               : Badge.count(

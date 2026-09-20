@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../app/shell/adaptive_app_shell.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../../l10n/app_localizations.dart';
 import '../application/report_providers.dart';
 import '../domain/incident_report.dart';
 
@@ -26,6 +27,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
   XFile? _photo;
   bool _locating = false;
   bool _submitting = false;
+  String? _pendingPhotoReportId;
 
   IncidentReportDraft get _draft => IncidentReportDraft(
     hazard: _selected,
@@ -121,13 +123,24 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       return;
     }
     setState(() => _submitting = true);
+    final photo = _photo;
     try {
-      await ref.read(reportsRepositoryProvider).submit(_draft);
+      final repository = ref.read(reportsRepositoryProvider);
+      final reportId = _pendingPhotoReportId ?? await repository.submit(_draft);
+      if (photo != null) {
+        _pendingPhotoReportId = reportId;
+        await repository.uploadPhoto(
+          reportId: reportId,
+          bytes: await photo.readAsBytes(),
+          filename: photo.name,
+        );
+      }
       if (!mounted) return;
       _description.clear();
       setState(() {
         _photo = null;
         _position = null;
+        _pendingPhotoReportId = null;
       });
       _message('Report submitted privately for verification.');
       await _showGuidance();
@@ -184,6 +197,26 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  Future<void> _showSignInGate() => showModalBottomSheet<void>(
+    context: context,
+    builder: (context) => const SafeArea(
+      child: Padding(
+        padding: EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outline_rounded, size: 40),
+            SizedBox(height: AppSpacing.sm),
+            Text(
+              'Sign in to submit a private report. Guidance remains available without an account.',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
   @override
   void dispose() {
     _description.dispose();
@@ -192,93 +225,100 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      key: const PageStorageKey('report-scroll'),
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-      children: [
-        const ResQPageHeader(
-          title: 'Report',
-          subtitle: 'Share what is happening without putting yourself at risk',
-        ),
-        const SizedBox(height: AppSpacing.xl),
-        Text(
-          'What are you experiencing?',
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: HazardType.values
-              .map(
-                (type) => ChoiceChip(
-                  label: Text(type.label),
-                  selected: _selected == type,
-                  onSelected: (_) => setState(() => _selected = type),
-                ),
-              )
-              .toList(),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        AppSectionCard(
-          child: TextField(
-            controller: _description,
-            minLines: 3,
-            maxLines: 5,
-            maxLength: 2000,
-            decoration: const InputDecoration(
-              labelText: 'What can you see?',
-              hintText: 'Add useful details without approaching danger',
+    final strings = AppLocalizations.of(context);
+    return AppPageContent(
+      child: ListView(
+        key: const PageStorageKey('report-scroll'),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        children: [
+          ResQPageHeader(
+            title: strings.report,
+            subtitle: strings.reportSubtitle,
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          Text(
+            'What are you experiencing?',
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: HazardType.values
+                .map(
+                  (type) => ChoiceChip(
+                    label: Text(type.label),
+                    selected: _selected == type,
+                    onSelected: (_) => setState(() => _selected = type),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AppSectionCard(
+            child: TextField(
+              controller: _description,
+              minLines: 3,
+              maxLines: 5,
+              maxLength: 2000,
+              decoration: const InputDecoration(
+                labelText: 'What can you see?',
+                hintText: 'Add useful details without approaching danger',
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        OutlinedButton.icon(
-          onPressed: _locating || _submitting ? null : _showAddDetails,
-          icon: _locating
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(
-                  _photo != null || _position != null
-                      ? Icons.check_circle_rounded
-                      : Icons.add_a_photo_outlined,
-                ),
-          label: Text(
-            _photo != null || _position != null
-                ? 'Optional details added'
-                : 'Add photo or location',
+          const SizedBox(height: AppSpacing.md),
+          OutlinedButton.icon(
+            onPressed: _locating || _submitting ? null : _showAddDetails,
+            icon: _locating
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    _photo != null || _position != null
+                        ? Icons.check_circle_rounded
+                        : Icons.add_a_photo_outlined,
+                  ),
+            label: Text(
+              _photo != null || _position != null
+                  ? 'Optional details added'
+                  : 'Add photo or location',
+            ),
           ),
-        ),
-        if (_photo != null) ...[
+          if (_photo != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Photo metadata is removed before private review.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          FilledButton.tonal(
+            onPressed: _showGuidance,
+            child: Text(strings.getGuidance),
+          ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Photo will be uploaded privately after secure storage is configured.',
-            style: Theme.of(context).textTheme.bodySmall,
+          FilledButton.icon(
+            onPressed: _submitting
+                ? null
+                : widget.isGuest
+                ? _showSignInGate
+                : _submit,
+            icon: _submitting
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send_rounded),
+            label: Text(
+              widget.isGuest
+                  ? 'Sign in to submit report'
+                  : strings.submitPrivateReport,
+            ),
           ),
         ],
-        const SizedBox(height: AppSpacing.md),
-        FilledButton.tonal(
-          onPressed: _showGuidance,
-          child: const Text('Get guidance'),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        FilledButton.icon(
-          onPressed: widget.isGuest || _submitting ? null : _submit,
-          icon: _submitting
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.send_rounded),
-          label: Text(
-            widget.isGuest
-                ? 'Sign in to submit report'
-                : 'Submit private report',
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

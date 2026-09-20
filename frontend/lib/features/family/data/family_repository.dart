@@ -7,7 +7,18 @@ abstract interface class FamilyRepository {
   Stream<String?> watchCircleId(String uid);
   Stream<List<EmergencyContact>> watchEmergencyContacts(String uid);
   Stream<List<CircleMember>> watchMembers(String circleId);
+  Stream<LocationShare?> watchActiveLocation({
+    required String circleId,
+    required String memberId,
+  });
   Future<void> checkIn(SafetyCheckIn checkIn);
+  Future<void> shareLocation({
+    required String circleId,
+    required String ownerId,
+    required double latitude,
+    required double longitude,
+    Duration duration,
+  });
 }
 
 class FirestoreFamilyRepository implements FamilyRepository {
@@ -94,6 +105,50 @@ class FirestoreFamilyRepository implements FamilyRepository {
       ...checkIn.toMap(),
       'createdAt': FieldValue.serverTimestamp(),
     });
+    batch.update(
+      _firestore
+          .collection('householdCircles')
+          .doc(checkIn.circleId)
+          .collection('members')
+          .doc(checkIn.userId),
+      {
+        'lastCheckInSafe': checkIn.safe,
+        'lastCheckInAt': FieldValue.serverTimestamp(),
+      },
+    );
     await batch.commit();
   }
+
+  @override
+  Future<void> shareLocation({
+    required String circleId,
+    required String ownerId,
+    required double latitude,
+    required double longitude,
+    Duration duration = const Duration(hours: 1),
+  }) => _firestore.collection('locationShares').add({
+    'circleId': circleId,
+    'ownerId': ownerId,
+    'location': {'latitude': latitude, 'longitude': longitude},
+    'capturedAt': FieldValue.serverTimestamp(),
+    'expiresAt': Timestamp.fromDate(DateTime.now().add(duration)),
+  });
+
+  @override
+  Stream<LocationShare?> watchActiveLocation({
+    required String circleId,
+    required String memberId,
+  }) => _firestore
+      .collection('locationShares')
+      .where('circleId', isEqualTo: circleId)
+      .where('ownerId', isEqualTo: memberId)
+      .where('expiresAt', isGreaterThan: Timestamp.now())
+      .orderBy('expiresAt', descending: true)
+      .limit(1)
+      .snapshots()
+      .map(
+        (snapshot) => snapshot.docs.isEmpty
+            ? null
+            : LocationShare.fromMap(snapshot.docs.first.data()),
+      );
 }

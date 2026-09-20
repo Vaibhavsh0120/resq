@@ -1,11 +1,14 @@
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+import secrets
+
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth
 
 from ..domain.models import UserContext
 from ..integrations.firebase import ensure_firebase
+from ..config import get_settings
 
 bearer = HTTPBearer(auto_error=True)
 
@@ -19,6 +22,8 @@ async def current_user(
         return UserContext(
             uid=decoded["uid"],
             is_anonymous=decoded.get("firebase", {}).get("sign_in_provider") == "anonymous",
+            email=decoded.get("email"),
+            phone_number=decoded.get("phone_number"),
         )
     except Exception as exc:
         raise HTTPException(
@@ -28,3 +33,15 @@ async def current_user(
 
 
 CurrentUser = Annotated[UserContext, Depends(current_user)]
+
+
+async def require_admin(x_admin_key: Annotated[str | None, Header()] = None) -> None:
+    expected = get_settings().admin_api_key
+    if not expected or not x_admin_key or not secrets.compare_digest(expected, x_admin_key):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "invalid_admin_key"},
+        )
+
+
+AdminAccess = Annotated[None, Depends(require_admin)]

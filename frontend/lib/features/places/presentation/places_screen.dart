@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../app/shell/adaptive_app_shell.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../../l10n/app_localizations.dart';
 import '../application/places_providers.dart';
 import '../domain/safe_place.dart';
 import 'place_detail_screen.dart';
@@ -15,15 +16,13 @@ class PlacesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = AppLocalizations.of(context);
     final position = ref.watch(currentPositionProvider);
     return ListView(
       key: const PageStorageKey('places-scroll'),
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
       children: [
-        const ResQPageHeader(
-          title: 'Places',
-          subtitle: 'Verified safe places within 5 km',
-        ),
+        ResQPageHeader(title: strings.places, subtitle: strings.placesSubtitle),
         const SizedBox(height: AppSpacing.xl),
         _MapSummary(
           hasError: position.hasError,
@@ -177,8 +176,7 @@ class _PlaceCard extends StatelessWidget {
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => PlaceDetailScreen(
-              name: place.name,
-              detail: details.isEmpty ? place.type : details,
+              place: place,
               distance: '${distanceKm.toStringAsFixed(1)} km',
             ),
           ),

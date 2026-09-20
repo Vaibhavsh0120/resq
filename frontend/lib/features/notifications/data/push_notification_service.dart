@@ -6,6 +6,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../core/config/app_config.dart';
+
 import '../../../app/navigation/root_router.dart';
 
 Map<String, String> buildDeviceRegistrationPayload({
@@ -18,11 +20,8 @@ class PushNotificationService {
 
   static final instance = PushNotificationService._();
 
-  static const _baseUrl = String.fromEnvironment(
-    'RESQ_API_BASE_URL',
-    defaultValue: 'http://localhost:8080',
-  );
-  static const _webVapidKey = String.fromEnvironment('RESQ_FCM_VAPID_KEY');
+  static const _baseUrl = AppConfig.apiBaseUrl;
+  static const _webVapidKey = AppConfig.fcmVapidKey;
 
   final _client = http.Client();
   bool _configured = false;
@@ -36,18 +35,33 @@ class PushNotificationService {
   Future<void> configure() async {
     if (_configured || !isSupported) return;
     _configured = true;
-    FirebaseAuth.instance.authStateChanges().listen((user) {
-      if (user != null && !user.isAnonymous) {
-        unawaited(_syncIfAuthorized());
+    try {
+      FirebaseAuth.instance.authStateChanges().listen((user) {
+        if (user != null && !user.isAnonymous) {
+          unawaited(_syncIfAuthorized());
+        }
+      });
+      FirebaseMessaging.instance.onTokenRefresh.listen((token) {
+        unawaited(_registerTokenSafely(token));
+      });
+      FirebaseMessaging.onMessageOpenedApp.listen(_openInbox);
+      if (_isApplePlatform) {
+        await FirebaseMessaging.instance
+            .setForegroundNotificationPresentationOptions(
+              alert: true,
+              badge: true,
+              sound: true,
+            );
       }
-    });
-    FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-      unawaited(_registerTokenSafely(token));
-    });
-    FirebaseMessaging.onMessageOpenedApp.listen(_openInbox);
-    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
-    if (initialMessage != null) _openInbox(initialMessage);
-    await _syncIfAuthorized();
+      final initialMessage = await FirebaseMessaging.instance
+          .getInitialMessage();
+      if (initialMessage != null) _openInbox(initialMessage);
+      await _syncIfAuthorized();
+    } catch (_) {
+      _configured = false;
+      // Startup must remain usable when APNs/FCM is unavailable. The settings
+      // screen can retry configuration when the user enables notifications.
+    }
   }
 
   Future<AuthorizationStatus> permissionStatus() async {
@@ -58,6 +72,7 @@ class PushNotificationService {
 
   Future<bool> enable() async {
     if (!isSupported) return false;
+    if (!_configured) await configure();
     final settings = await FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
@@ -95,9 +110,15 @@ class PushNotificationService {
   }
 
   Future<void> _syncToken() async {
-    if (_isApplePlatform &&
-        await FirebaseMessaging.instance.getAPNSToken() == null) {
-      return;
+    if (_isApplePlatform) {
+      String? apnsToken;
+      for (var attempt = 0; attempt < 8 && apnsToken == null; attempt++) {
+        apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+        if (apnsToken == null) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      }
+      if (apnsToken == null) return;
     }
     final token = await FirebaseMessaging.instance.getToken(
       vapidKey: kIsWeb && _webVapidKey.isNotEmpty ? _webVapidKey : null,
@@ -125,7 +146,16 @@ class PushNotificationService {
     }
   }
 
-  void _openInbox(RemoteMessage _) => rootRouter.go('/notifications');
+  void _openInbox(RemoteMessage message) {
+    final deepLink = message.data['deepLink'];
+    if (deepLink is String &&
+        deepLink.startsWith('/') &&
+        !deepLink.startsWith('//')) {
+      rootRouter.go(deepLink);
+      return;
+    }
+    rootRouter.go('/notifications');
+  }
 
   bool get _isApplePlatform =>
       !kIsWeb &&

@@ -11,11 +11,88 @@ from ...domain.models import (
     CircleInvite,
     CircleInviteAccepted,
     CircleInviteCreate,
+    HouseholdCircle,
 )
 from ...integrations.firebase import firestore_client
 from ..dependencies import CurrentUser
 
 router = APIRouter(tags=["circles"])
+
+
+def build_circle_records(
+    *, uid: str, display_name: str, circle_id: str, created_at: datetime
+) -> tuple[dict, dict, dict]:
+    return (
+        {
+            "ownerId": uid,
+            "name": (
+                "My Family Circle"
+                if display_name == "My"
+                else f"{display_name}'s Family Circle"
+            ),
+            "createdAt": created_at,
+            "updatedAt": created_at,
+        },
+        {
+            "userId": uid,
+            "displayName": display_name,
+            "phoneNumber": "",
+            "role": "owner",
+            "accepted": True,
+            "joinedAt": created_at,
+            "sharingPermissions": {"location": False},
+        },
+        {"circleId": circle_id},
+    )
+
+
+@router.post(
+    "/circles",
+    response_model=HouseholdCircle,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_circle(user: CurrentUser) -> HouseholdCircle:
+    if user.is_anonymous:
+        raise HTTPException(status_code=403, detail={"code": "registered_account_required"})
+
+    database = firestore_client()
+    settings_ref = (
+        database.collection("users")
+        .document(user.uid)
+        .collection("settings")
+        .document("app")
+    )
+    profile = database.collection("users").document(user.uid).get().to_dict() or {}
+    personal = profile.get("personalInfo") or {}
+    display_name = personal.get("fullName") or "My"
+    phone_number = personal.get("phoneNumber") or ""
+    circle_id = str(uuid4())
+    now = datetime.now(UTC)
+    circle, member, settings = build_circle_records(
+        uid=user.uid,
+        display_name=display_name,
+        circle_id=circle_id,
+        created_at=now,
+    )
+    member["phoneNumber"] = phone_number
+    circle_ref = database.collection("householdCircles").document(circle_id)
+    transaction = database.transaction()
+
+    @firestore.transactional
+    def bootstrap(current_transaction):
+        existing = settings_ref.get(transaction=current_transaction).to_dict() or {}
+        existing_circle_id = existing.get("circleId")
+        if existing_circle_id:
+            return existing_circle_id, False
+        current_transaction.set(circle_ref, circle)
+        current_transaction.set(
+            circle_ref.collection("members").document(user.uid), member
+        )
+        current_transaction.set(settings_ref, settings, merge=True)
+        return circle_id, True
+
+    resolved_circle_id, created = bootstrap(transaction)
+    return HouseholdCircle(circle_id=resolved_circle_id, created=created)
 
 
 @router.post(
@@ -100,6 +177,13 @@ async def accept_invite(token: str, user: CurrentUser) -> CircleInviteAccepted:
         expires_at = invite.get("expiresAt")
         if invite.get("redeemed") or expires_at is None or expires_at <= datetime.now(UTC):
             raise HTTPException(status_code=410, detail={"code": "invite_expired"})
+        intended = invite.get("intendedContact") or {}
+        intended_email = (intended.get("email") or "").strip().casefold()
+        if intended_email and intended_email != (user.email or "").strip().casefold():
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "invite_intended_for_another_account"},
+            )
         circle_id = invite["circleId"]
         profile_snapshot = database.collection("users").document(user.uid).get()
         profile = profile_snapshot.to_dict() or {}
@@ -116,6 +200,15 @@ async def accept_invite(token: str, user: CurrentUser) -> CircleInviteAccepted:
             .collection("settings")
             .document("app")
         )
+        existing_settings = (
+            settings_ref.get(transaction=current_transaction).to_dict() or {}
+        )
+        existing_circle_id = existing_settings.get("circleId")
+        if existing_circle_id and existing_circle_id != circle_id:
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "circle_membership_already_exists"},
+            )
         now = datetime.now(UTC)
         current_transaction.set(
             member_ref,

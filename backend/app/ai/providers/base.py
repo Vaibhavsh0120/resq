@@ -13,4 +13,10 @@ class AiProvider(ABC):
             yield ""
 
     @abstractmethod
-    async def create_voice_session(self, *, safety_identifier: str) -> dict[str, object]: ...
+    async def create_voice_session(
+        self,
+        *,
+        safety_identifier: str,
+        language: str,
+        conversation_context: str = "",
+    ) -> dict[str, object]: ...

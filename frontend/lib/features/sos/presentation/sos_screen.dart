@@ -129,6 +129,14 @@ class _SosScreenState extends ConsumerState<SosScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: _seconds == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _seconds != null) {
+          _cancel();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('SOS countdown cancelled.')),
+          );
+        }
+      },
       child: Scaffold(
         appBar: AppBar(title: const Text('Emergency SOS')),
         body: SafeArea(

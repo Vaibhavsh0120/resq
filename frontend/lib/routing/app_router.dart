@@ -24,7 +24,9 @@ import 'navigation_policy.dart';
 ///    resuming at whatever step their profile says they reached.
 /// 4. Signed in, onboarding complete → [HomeScreen].
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key});
+  const AuthGate({super.key, this.initialDestination = 'home'});
+
+  final String initialDestination;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -69,10 +71,13 @@ class _AuthGateState extends State<AuthGate> {
           startupShown: _startupShown,
         );
         if (destination == AppDestination.home) {
-          return const HomeScreen();
+          return HomeScreen(initialDestination: widget.initialDestination);
         }
 
-        return _OnboardingGate(uid: user.uid);
+        return _OnboardingGate(
+          uid: user.uid,
+          initialDestination: widget.initialDestination,
+        );
       },
     );
   }
@@ -82,9 +87,10 @@ class _AuthGateState extends State<AuthGate> {
 /// Onboarding vs Home. Kept separate from [AuthGate] so the profile stream
 /// only exists while a real (non-anonymous) user is signed in.
 class _OnboardingGate extends StatelessWidget {
-  const _OnboardingGate({required this.uid});
+  const _OnboardingGate({required this.uid, required this.initialDestination});
 
   final String uid;
+  final String initialDestination;
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +102,7 @@ class _OnboardingGate extends StatelessWidget {
         }
         final profile = snapshot.data!;
         if (profile.onboardingCompleted) {
-          return const HomeScreen();
+          return HomeScreen(initialDestination: initialDestination);
         }
         return OnboardingFlow(initialProfile: profile);
       },

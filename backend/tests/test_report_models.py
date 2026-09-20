@@ -1,7 +1,10 @@
+from datetime import UTC, datetime
+
 import pytest
 from pydantic import ValidationError
 
 from app.domain.models import CircleInviteCreate, DeviceRegistration, IncidentReportCreate
+from app.api.routes.circles import build_circle_records
 from app.services.sos_fanout import build_sos_notification
 
 
@@ -40,3 +43,18 @@ def test_device_registration_accepts_supported_platform():
 
     with pytest.raises(ValidationError):
         DeviceRegistration(token="fcm-token", platform="unsupported")
+
+
+def test_new_circle_bootstraps_its_owner():
+    created_at = datetime(2026, 1, 2, tzinfo=UTC)
+    circle, member, settings = build_circle_records(
+        uid="owner-1",
+        display_name="Asha",
+        circle_id="circle-1",
+        created_at=created_at,
+    )
+
+    assert circle["ownerId"] == "owner-1"
+    assert member["role"] == "owner"
+    assert member["accepted"] is True
+    assert settings == {"circleId": "circle-1"}

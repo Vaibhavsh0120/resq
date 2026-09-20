@@ -1,8 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'app/navigation/root_router.dart';
 import 'firebase_options.dart';
@@ -12,6 +15,7 @@ import 'services/locale_controller.dart';
 import 'services/theme_controller.dart';
 import 'theme/app_theme.dart';
 import 'features/notifications/data/push_notification_service.dart';
+import 'core/config/app_config.dart';
 
 @pragma('vm:entry-point')
 Future<void> resqMessagingBackgroundHandler(RemoteMessage message) async {
@@ -24,6 +28,7 @@ Future<void> resqMessagingBackgroundHandler(RemoteMessage message) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
 
   // Resolved once, here, before anything else runs — screens/services read
   // AppPlatformInfo.current synchronously from then on (e.g. to skip the
@@ -31,6 +36,16 @@ Future<void> main() async {
   AppPlatformInfo.resolve();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (AppConfig.useFirebaseEmulators) {
+    await FirebaseAuth.instance.useAuthEmulator(
+      AppConfig.firebaseEmulatorHost,
+      9099,
+    );
+    FirebaseFirestore.instance.useFirestoreEmulator(
+      AppConfig.firebaseEmulatorHost,
+      8081,
+    );
+  }
   FirebaseMessaging.onBackgroundMessage(resqMessagingBackgroundHandler);
 
   final themeController = await ThemeController.load();

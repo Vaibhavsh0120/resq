@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../theme/app_theme.dart';
@@ -22,6 +23,16 @@ class NotificationsScreen extends ConsumerWidget {
         : ref.watch(unreadNotificationsProvider(uid));
     return Scaffold(
       appBar: AppBar(
+        leading: BackButton(
+          onPressed: () {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
         title: const Text('Notifications'),
         actions: [
           if (uid != null)
@@ -79,13 +90,21 @@ class NotificationsScreen extends ConsumerWidget {
                                             .markRead(uid, notification.id);
                                       }
                                       if (context.mounted) {
-                                        await Navigator.of(context).push(
-                                          MaterialPageRoute<void>(
-                                            builder: (_) => _NotificationDetail(
-                                              notification: notification,
+                                        final deepLink = notification.deepLink;
+                                        if (deepLink != null &&
+                                            deepLink.startsWith('/') &&
+                                            !deepLink.startsWith('//')) {
+                                          context.push(deepLink);
+                                        } else {
+                                          await Navigator.of(context).push(
+                                            MaterialPageRoute<void>(
+                                              builder: (_) =>
+                                                  _NotificationDetail(
+                                                    notification: notification,
+                                                  ),
                                             ),
-                                          ),
-                                        );
+                                          );
+                                        }
                                       }
                                     },
                                   );
@@ -168,17 +187,21 @@ class _PushPermissionCardState extends State<_PushPermissionCard> {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                const Text(
-                  'Receive critical safety and Family Circle alerts when ResQ is closed.',
+                Text(
+                  status == AuthorizationStatus.denied
+                      ? 'Push alerts are blocked. Enable notifications for ResQ in your device settings.'
+                      : 'Receive critical safety and Family Circle alerts when ResQ is closed.',
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                    onPressed: _enabling ? null : _enable,
-                    child: Text(_enabling ? 'Enabling…' : 'Enable'),
+                if (status != AuthorizationStatus.denied) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      onPressed: _enabling ? null : _enable,
+                      child: Text(_enabling ? 'Enabling…' : 'Enable'),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

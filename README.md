@@ -10,8 +10,8 @@ nearby safe places from one application.
 
 ## Current milestone
 
-This repository currently implements the startup, authentication, and onboarding
-foundation:
+This repository now contains a connected Flutter safety-app foundation and a
+FastAPI service:
 
 - Light, dark, and system themes using the Precision Light visual language
 - Theme-aware startup video on Android and iOS; tap anywhere to skip
@@ -27,11 +27,22 @@ foundation:
   - Address, GPS coordinates, and OpenStreetMap preview
 - Responsive layouts for phones, tablets, landscape displays, and desktop web
 - Haptic feedback on supported mobile devices
-- Minimal authenticated home screen with logout
+- Adaptive Home, Updates, Report, Family, and Places navigation
+- SOS countdown, `112` calling, location-aware event records, Circle fan-out, and SMS fallback
+- Readiness checklist, verified alert feed, private reports, and nearby safe places
+- Household Circle creation, invitations, emergency check-ins, and consent-aware location UI
+- Durable notification inbox and opt-in FCM device registration
+- Provider-neutral assistant API with streaming text and voice-session negotiation
 
-SOS activation, emergency calling, live family tracking, incident reporting,
-preparedness checklists, alerts, and safe-place discovery are planned features and
-are not implemented yet.
+Some production integrations still require operator configuration, including the
+AI provider key, official alert ingestion jobs, private report-photo storage, and
+Apple/Google push credentials.
+
+The connected milestone also includes persisted assistant history, direct
+OpenAI Realtime WebRTC voice transport, consent-filtered structured retrieval,
+private report-photo sanitization and upload, moderation/admin routes, official
+NDMA/IMD ingestion adapters, emergency check-in reminder jobs, profile/privacy
+settings, SOS history, expiring Circle location maps, and URL-based detail routes.
 
 ## Technology
 
@@ -121,7 +132,8 @@ Both commands should complete without errors.
 
 ### Push-notification development
 
-Android notification permission and the web messaging service worker are included.
+Android notification permission, the web messaging service worker, and the iOS
+Push Notifications/Background Modes entitlements are included.
 For web push, create a Web Push certificate in Firebase and pass its public VAPID
 key at build or run time:
 
@@ -130,8 +142,19 @@ flutter run -d chrome --dart-define=RESQ_FCM_VAPID_KEY=<public-vapid-key>
 ```
 
 The app registers device tokens only after a registered user explicitly enables
-push alerts. iOS builds additionally require the Push Notifications capability,
-an APNs key uploaded to Firebase, and the correct signing profile in Xcode.
+push alerts. Before distributing iOS builds, create an APNs authentication key in
+the Apple Developer portal, upload it in Firebase Console under Project settings
+→ Cloud Messaging, and use a provisioning profile for `com.vaibhav.resq` that
+contains the Push Notifications entitlement. Validate this on a physical device;
+the Windows development environment cannot produce or sign an iOS build.
+
+Invitation and notification links use `https://resq.app`. Before production,
+serve an Apple App Site Association file at
+`https://resq.app/.well-known/apple-app-site-association` and an Android Digital
+Asset Links file at `https://resq.app/.well-known/assetlinks.json`, using the
+production Apple Team ID and Android signing-certificate fingerprint. The app
+entitlements and intent filters are already configured, but the operating systems
+will not trust universal/app links until those two HTTPS files are deployed.
 
 ### Use the existing Firebase development project
 
@@ -221,6 +244,47 @@ this repository.
 
 ## Run the app
 
+### One-command local development on Windows
+
+Install frontend and backend dependencies once:
+
+```powershell
+cd frontend
+flutter pub get
+npm install
+cd ..\backend
+python -m pip install -e ".[dev]"
+cd ..
+```
+
+Then start the Firebase Auth/Firestore emulators, FastAPI, and Flutter web app:
+
+```powershell
+.\scripts\run-local.ps1 -Target chrome -Seed
+```
+
+The app opens at `http://localhost:5000`, FastAPI listens on
+`http://localhost:8080`, and the Firebase Emulator UI is at
+`http://localhost:4000`. Remove `-Seed` after the first run. For an Android
+emulator, use `-Target android`; its configuration uses `10.0.2.2` to reach the
+Windows host.
+
+The checked-in frontend files under `frontend/config/` contain public runtime
+switches only. Flutter reads them with `--dart-define-from-file`. Copy
+`frontend/config/production.example.json` to a CI-managed production JSON file
+and replace the API URL and public VAPID key. Do not put server secrets in a
+Flutter define because they are embedded in the client bundle.
+
+`backend/.env` is a gitignored local-development file configured for the local
+Firebase emulators. `backend/.env.example` documents local keys, while
+`backend/.env.production.example` documents deployment variables. In production,
+inject `AI_API_KEY`, Firebase credentials, the admin key, and OCI S3-compatible
+credentials through the host secret manager; never upload a populated `.env`.
+
+Realtime voice needs a valid `AI_API_KEY` with Realtime access. Without one, the
+app reports voice as unavailable while text navigation, SOS, and cached safety
+features remain usable.
+
 List available devices:
 
 ```shell
@@ -240,6 +304,55 @@ flutter run -d chrome
 flutter run -d <android-device-id>
 flutter run -d <ios-device-id>
 ```
+
+For direct manual local runs, include the matching profile:
+
+```shell
+flutter run -d chrome --web-port 5000 --dart-define-from-file=config/local.web.json
+flutter run --dart-define-from-file=config/local.android.json
+flutter run -d <ios-device-id> --dart-define-from-file=config/local.ios.json
+```
+
+### Backend jobs
+
+Run these from `backend/` under a trusted scheduler. The check-in job is intended
+to run every minute; ingestion can run every 5–15 minutes depending on official
+source limits.
+
+```shell
+python scripts/ingest_alerts.py
+python scripts/send_checkin_reminders.py
+```
+
+Set a verified NDMA RSS URL, IMD district API template, and district object IDs in
+the backend environment before enabling ingestion. The IMD template accepts
+`{id}` for each configured district, for example the official district-warning
+endpoint documented by IMD. Report approval is deliberately not an
+automatic copy: `POST /v1/admin/reports/{reportId}:approve` requires a reviewed
+`public_description` so private text and identifying details are not published.
+Admin moderation routes require `X-Admin-Key` and are never called by the mobile
+client.
+
+### Production backend and monitoring
+
+Build the API from `backend/` and inject the production variables through the
+hosting platform rather than copying a populated env file into the image:
+
+```shell
+docker build -t resq-api .
+docker run --env-file /run/secrets/resq-api.env -p 127.0.0.1:8080:8080 resq-api
+```
+
+On an Oracle VM, place Caddy, Nginx, or the Oracle load balancer in front of
+`127.0.0.1:8080`, terminate TLS there, allow only HTTPS from the public network,
+and proxy the original request ID. Monitor `GET /v1/health` from an external
+uptime service, alert on repeated 5xx/429 responses, container restarts, ingestion
+failures, FCM failures, object-storage errors, and AI spend/rate limits. Ship the
+JSON request logs to OCI Logging (or another retained log service) and keep the
+ingestion and check-in scripts in separately monitored scheduler jobs. Use at
+least staging and production Firebase projects and keep AI, voice, ingestion,
+and push disabled in the release configuration until their credentials and
+budgets are verified.
 
 Expected signed-out flow:
 
