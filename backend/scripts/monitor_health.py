@@ -10,6 +10,7 @@ def main() -> None:
     now = datetime.now(UTC)
     sources = {
         "ndma": ("ingestionState", "lastCheckedAt", timedelta(minutes=90)),
+        "gdacs": ("ingestionState", "lastCheckedAt", timedelta(minutes=90)),
         "sos_retry": ("jobHealth", "lastRunAt", timedelta(minutes=20)),
         "checkin": ("jobHealth", "lastRunAt", timedelta(minutes=20)),
         "photo_scan": ("jobHealth", "lastRunAt", timedelta(hours=2)),
