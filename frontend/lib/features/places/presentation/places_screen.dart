@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../app/shell/adaptive_app_shell.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../../widgets/osm_map_attribution.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/places_providers.dart';
 import '../domain/safe_place.dart';
@@ -128,7 +129,7 @@ class _MapSummary extends StatelessWidget {
               children: [
                 TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'app.resq.safety',
+                  userAgentPackageName: 'com.vaibhav.resq',
                 ),
                 MarkerLayer(
                   markers: [
@@ -144,6 +145,7 @@ class _MapSummary extends StatelessWidget {
                     ),
                   ],
                 ),
+                const OsmMapAttribution(),
               ],
             )
           : Center(

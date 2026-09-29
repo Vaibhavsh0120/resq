@@ -107,6 +107,9 @@ web build, or unsigned IPA build does not replace an iPhone installation test.
   Firestore usage, and Cloudinary Free usage. `monitor_health.py` fails the
   scheduled workflow for stale or failed jobs. If capacity is exhausted,
   disable the affected optional feature and tell users its status.
+- Maps use OpenStreetMap's public tile server with visible attribution and
+  the map library's native tile cache. This free service is best effort and
+  may block heavy usage; follow its tile policy before a larger launch.
 
 ## Rollback
 

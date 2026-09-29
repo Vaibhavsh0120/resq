@@ -15,9 +15,10 @@ def main() -> None:
     database = firestore_client()
     storage = ReportPhotoStorage(get_settings())
     now = datetime.now(UTC)
-    expired = database.collection("incidentReports").where("photoExpiresAt", "<=", now).limit(200).stream()
-    retry = database.collection("incidentReports").where("photoState", "==", "delete_pending").limit(200).stream()
-    candidates = {snapshot.id: snapshot for snapshot in [*expired, *retry]}
+    expired = list(database.collection("incidentReports").where("photoExpiresAt", "<=", now).limit(1001).stream())
+    retry = list(database.collection("incidentReports").where("photoState", "==", "delete_pending").limit(1001).stream())
+    backlog = len(expired) > 1000 or len(retry) > 1000
+    candidates = {snapshot.id: snapshot for snapshot in [*expired[:1000], *retry[:1000]]}
     failures = 0
     overdue = 0
     for snapshot in candidates.values():
@@ -41,10 +42,11 @@ def main() -> None:
                 {"photoState": "delete_pending", "photoDeleteFailedAt": datetime.now(UTC)}
             )
     database.collection("jobHealth").document("photo_purge").set(
-        {"lastRunAt": now, "processed": len(candidates), "failures": failures, "overdue": overdue}
+        {"lastRunAt": now, "processed": len(candidates), "failures": failures,
+         "overdue": overdue, "backlog": backlog}
     )
-    if failures or overdue:
-        raise SystemExit(f"{failures} Cloudinary deletions need retry; {overdue} are overdue")
+    if failures or overdue or backlog:
+        raise SystemExit(f"{failures} Cloudinary deletions need retry; {overdue} are overdue; backlog={backlog}")
 
 
 if __name__ == "__main__":

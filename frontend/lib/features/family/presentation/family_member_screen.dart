@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../../widgets/osm_map_attribution.dart';
 import '../domain/family_models.dart';
 import '../data/family_repository.dart';
 
@@ -150,6 +151,7 @@ class FamilyMemberScreen extends StatelessWidget {
                                     ),
                                   ],
                                 ),
+                                const OsmMapAttribution(),
                               ],
                             ),
                           ),

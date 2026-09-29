@@ -9,6 +9,7 @@ import '../../data/country_subdivisions.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/app_surfaces.dart';
+import '../../widgets/osm_map_attribution.dart';
 import '../../widgets/primary_button.dart';
 
 /// Onboarding Step 4 — Home Location.
@@ -228,11 +229,7 @@ class _HomeLocationStepState extends State<HomeLocationStep> {
                           ),
                         ],
                       ),
-                    RichAttributionWidget(
-                      attributions: [
-                        TextSourceAttribution('© OpenStreetMap contributors'),
-                      ],
-                    ),
+                    const OsmMapAttribution(),
                   ],
                 ),
                 if (!hasCoords && !_isLocating)

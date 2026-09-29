@@ -19,7 +19,7 @@ def main() -> None:
     for name, (collection, timestamp_key, max_age) in sources.items():
         data = database.collection(collection).document(name).get().to_dict() or {}
         checked = data.get(timestamp_key)
-        if not checked or now - checked > max_age or data.get("status") in {"error", "partial"} or data.get("failures", 0):
+        if not checked or now - checked > max_age or data.get("status") in {"error", "partial"} or data.get("failures", 0) or data.get("backlog"):
             unhealthy.append(name)
     if unhealthy:
         raise SystemExit("Operator action needed: stale or failed jobs: " + ", ".join(unhealthy))
