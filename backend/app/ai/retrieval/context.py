@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from math import asin, cos, radians, sin, sqrt
 from typing import Any
 
 from ...integrations.firebase import firestore_client
+from ...integrations.official_alerts import matches_region
+from ...services.geo_cells import nearby_cells
 
 
 _CONSENT_FIELDS = {
@@ -86,28 +89,9 @@ def retrieve_context(uid: str, consent_categories: set[str]) -> dict[str, Any]:
         "guidance": [],
     }
     try:
-        alerts = (
-            database.collection("publicAlerts")
-            .where("verified", "==", True)
-            .order_by("issuedAt", direction="DESCENDING")
-            .limit(8)
-            .stream()
-        )
-        context["verified_alerts"] = [
-            {"id": item.id, **item.to_dict()} for item in alerts
-        ]
         guidance = database.collection("guidance").limit(8).stream()
         context["guidance"] = [
             {"id": item.id, **item.to_dict()} for item in guidance
-        ]
-        reports = (
-            database.collection("verifiedReports")
-            .order_by("verifiedAt", direction="DESCENDING")
-            .limit(8)
-            .stream()
-        )
-        context["verified_reports"] = [
-            {"id": item.id, **item.to_dict()} for item in reports
         ]
     except Exception:
         # Public retrieval failure must not widen access or block basic AI.
@@ -116,14 +100,53 @@ def retrieve_context(uid: str, consent_categories: set[str]) -> dict[str, Any]:
     try:
         profile = database.collection("users").document(uid).get().to_dict() or {}
         context.update(filter_profile_context(profile, consent_categories))
+        home = profile.get("homeLocation") or {}
+        state = str(home.get("state") or "").strip().casefold()
+        city = str(home.get("city") or "").strip().casefold()
+        if state and ({"coarse_location", "precise_location"} & consent_categories):
+            alerts = (
+                database.collection("publicAlerts")
+                .where("verified", "==", True)
+                .where("states", "array_contains", state)
+                .where("expiresAt", ">", datetime.now(UTC))
+                .order_by("expiresAt")
+                .limit(50)
+                .stream()
+            )
+            context["verified_alerts"] = [
+                {"id": item.id, **data}
+                for item in alerts
+                if matches_region((data := item.to_dict() or {}), city=city, state=state)
+            ][:8]
         consented_location = context.get("precise_location") or context.get(
             "coarse_location"
         )
         if consented_location:
+            reports = (
+                database.collection("verifiedReports")
+                .where("geoCell", "in", nearby_cells(float(consented_location["latitude"]), float(consented_location["longitude"]), 10))
+                .limit(200)
+                .stream()
+            )
+            local_reports = []
+            for report in reports:
+                data = report.to_dict() or {}
+                location = data.get("coarseLocation") or {}
+                if location.get("latitude") is None or location.get("longitude") is None:
+                    continue
+                distance = _distance_km(
+                    float(consented_location["latitude"]), float(consented_location["longitude"]),
+                    float(location["latitude"]), float(location["longitude"]),
+                )
+                if distance <= 10:
+                    local_reports.append({"id": report.id, **data, "distanceKm": round(distance, 2)})
+            local_reports.sort(key=lambda item: item.get("verifiedAt") or datetime.min.replace(tzinfo=UTC), reverse=True)
+            context["verified_reports"] = local_reports[:8]
             places = (
                 database.collection("safePlaces")
                 .where("verified", "==", True)
-                .limit(100)
+                .where("geoCell", "in", nearby_cells(float(consented_location["latitude"]), float(consented_location["longitude"]), 5))
+                .limit(200)
                 .stream()
             )
             nearby = []

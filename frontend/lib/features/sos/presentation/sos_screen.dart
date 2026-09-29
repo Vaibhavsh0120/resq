@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -8,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../../l10n/app_localizations.dart';
 import '../application/sos_providers.dart';
 
 class SosScreen extends ConsumerStatefulWidget {
@@ -23,6 +23,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
   bool _activated = false;
   bool _activating = false;
   bool _saved = false;
+  String _deliveryMessage = '';
   double? _latitude;
   double? _longitude;
 
@@ -45,7 +46,12 @@ class _SosScreenState extends ConsumerState<SosScreen> {
 
   Future<void> _activate() async {
     if (_activating || _activated) return;
-    setState(() => _activating = true);
+    final strings = AppLocalizations.of(context);
+    setState(() {
+      _activated = true;
+      _activating = true;
+      _deliveryMessage = strings.sosRecording;
+    });
     Position? position;
     try {
       var permission = await Geolocator.checkPermission();
@@ -64,43 +70,48 @@ class _SosScreenState extends ConsumerState<SosScreen> {
     _latitude = position?.latitude;
     _longitude = position?.longitude;
 
-    final userId = FirebaseAuth.instance.currentUser?.uid;
     var saved = false;
-    if (userId != null) {
-      try {
-        final eventId = await ref
-            .read(sosRepositoryProvider)
-            .activate(
-              ownerId: userId,
-              latitude: _latitude,
-              longitude: _longitude,
-            );
-        saved = true;
+    var deliveryMessage = strings.sosUnconfirmedHelp;
+    try {
+      final event = await ref
+          .read(sosRepositoryProvider)
+          .activate(latitude: _latitude, longitude: _longitude);
+      saved = true;
+      if (event.deliveryStatus == 'no_recipients') {
+        deliveryMessage = strings.sosNoRecipients;
+      } else {
+        deliveryMessage = strings.sosDeliveryPending;
         try {
-          await ref.read(sosApiProvider).fanOut(eventId);
+          final status = await ref.read(sosApiProvider).fanOut(event.id);
+          if (status == 'inbox_delivered') {
+            deliveryMessage = strings.sosInboxesRecorded;
+          } else if (status == 'no_recipients') {
+            deliveryMessage = strings.sosNoRecipients;
+          }
         } catch (_) {
-          // The durable SOS event remains pending for backend retry.
+          // The event remains pending for a scheduled backend retry.
         }
-      } catch (_) {
-        saved = false;
       }
+    } catch (_) {
+      saved = false;
     }
     if (!mounted) return;
     setState(() {
       _activating = false;
-      _activated = true;
       _saved = saved;
+      _deliveryMessage = deliveryMessage;
     });
   }
 
   Future<void> _callEmergency() => _launch(Uri(scheme: 'tel', path: '112'));
 
   Future<void> _shareBySms() {
+    final strings = AppLocalizations.of(context);
     final location = _latitude == null || _longitude == null
         ? ''
-        : ' My location: https://maps.google.com/?q=$_latitude,$_longitude';
+        : ' ${strings.sosMyLocation} https://maps.google.com/?q=$_latitude,$_longitude';
     final query =
-        'body=${Uri.encodeComponent('I need emergency help.$location')}';
+        'body=${Uri.encodeComponent('${strings.sosSmsBody}$location')}';
     return _launch(Uri(scheme: 'sms', query: query));
   }
 
@@ -108,7 +119,9 @@ class _SosScreenState extends ConsumerState<SosScreen> {
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No compatible phone app is available.')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).phoneAppUnavailable),
+        ),
       );
     }
   }
@@ -127,18 +140,19 @@ class _SosScreenState extends ConsumerState<SosScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return PopScope(
       canPop: _seconds == null,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _seconds != null) {
           _cancel();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('SOS countdown cancelled.')),
+            SnackBar(content: Text(strings.sosCountdownCancelled)),
           );
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Emergency SOS')),
+        appBar: AppBar(title: Text(strings.sosTitle)),
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -150,31 +164,27 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                   child: Column(
                     children: [
                       Icon(
-                        _activated
-                            ? Icons.check_circle_rounded
-                            : Icons.sos_rounded,
+                        _saved ? Icons.check_circle_rounded : Icons.sos_rounded,
                         size: 72,
                         color: AppColors.emergency,
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Text(
-                        _activated
-                            ? 'SOS activated'
-                            : _activating
-                            ? 'Activating SOS'
+                        _activating
+                            ? strings.sosSending
+                            : _activated
+                            ? _saved
+                                  ? strings.sosRecorded
+                                  : strings.sosDigitalUnconfirmed
                             : _seconds != null
-                            ? 'Sending SOS in $_seconds'
-                            : 'Hold to activate SOS',
+                            ? '${strings.sosCountdown} $_seconds'
+                            : strings.sosActivate,
                         style: Theme.of(context).textTheme.headlineSmall,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        _activated
-                            ? _saved
-                                  ? 'Your SOS event was recorded. Call 112 if you need immediate help.'
-                                  : 'ResQ could not confirm the online record. Calling 112 and SMS sharing are still available.'
-                            : 'You will have five seconds to cancel before ResQ records the event.',
+                        _activated ? _deliveryMessage : strings.sosCancelNotice,
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -184,14 +194,15 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                 if (_seconds != null)
                   OutlinedButton(
                     onPressed: _cancel,
-                    child: const Text('Cancel SOS'),
+                    child: Text(strings.sosCancel),
                   )
                 else if (!_activated && !_activating)
-                  GestureDetector(
+                  InkWell(
+                    onTap: _start,
                     onLongPress: _start,
                     child: Semantics(
                       button: true,
-                      label: 'Press and hold to activate emergency SOS',
+                      label: strings.sosActivate,
                       child: Container(
                         height: 84,
                         alignment: Alignment.center,
@@ -199,9 +210,9 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                           color: AppColors.emergency,
                           borderRadius: BorderRadius.circular(AppRadius.lg),
                         ),
-                        child: const Text(
-                          'Hold to activate SOS',
-                          style: TextStyle(
+                        child: Text(
+                          strings.sosActivate,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
                           ),
@@ -213,13 +224,13 @@ class _SosScreenState extends ConsumerState<SosScreen> {
                 OutlinedButton.icon(
                   onPressed: _callEmergency,
                   icon: const Icon(Icons.call_rounded),
-                  label: const Text('Call 112'),
+                  label: Text(strings.call112),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 OutlinedButton.icon(
-                  onPressed: _activated ? _shareBySms : null,
+                  onPressed: _shareBySms,
                   icon: const Icon(Icons.sms_rounded),
-                  label: const Text('Share SOS by SMS'),
+                  label: Text(strings.sosSmsHelp),
                 ),
               ],
             ),

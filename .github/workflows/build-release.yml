@@ -1,7 +1,7 @@
 name: Build ResQ Mobile Releases
 
 # Builds RELEASE builds (not debug) of the Android APK/AAB and the iOS IPA, and
-# publishes them to a GitHub Release.
+# uploads them as immutable workflow artifacts for device testing.
 #
 # Android:
 #   - Always builds a release APK and Play Store app bundle.
@@ -65,6 +65,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Test backend
+        working-directory: backend
+        run: |
+          python -m pip install -e ".[dev]"
+          python -m pytest -q
+
       - name: Setup Java
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
@@ -106,6 +117,12 @@ jobs:
         working-directory: frontend
         run: npm run test:rules
 
+      - name: Validate production app URL
+        env:
+          RESQ_API_BASE_URL: ${{ vars.RESQ_API_BASE_URL }}
+          RESQ_FCM_VAPID_KEY: ${{ vars.RESQ_FCM_VAPID_KEY }}
+        run: python frontend/tool/write_release_config.py "$RUNNER_TEMP/resq-production.json"
+
   build-android:
     name: Build Android APK and AAB
     needs: validate
@@ -135,6 +152,12 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: flutter pub get
+
+      - name: Write production app configuration
+        env:
+          RESQ_API_BASE_URL: ${{ vars.RESQ_API_BASE_URL }}
+          RESQ_FCM_VAPID_KEY: ${{ vars.RESQ_FCM_VAPID_KEY }}
+        run: python frontend/tool/write_release_config.py "$RUNNER_TEMP/resq-production.json"
 
       # --- Optional real release signing -------------------------------------------------
       # Configure these repo secrets to sign with your real upload keystore instead of the
@@ -185,11 +208,11 @@ jobs:
 
       - name: Build release APK
         working-directory: frontend
-        run: flutter build apk --release
+        run: flutter build apk --release --dart-define-from-file="$RUNNER_TEMP/resq-production.json"
 
       - name: Build release app bundle
         working-directory: frontend
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --dart-define-from-file="$RUNNER_TEMP/resq-production.json"
 
       - name: Prepare release artifacts
         run: |
@@ -207,7 +230,7 @@ jobs:
             release/*.apk
             release/*.aab
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
 
   build-ios:
     name: Build iOS IPA
@@ -229,6 +252,12 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: flutter pub get
+
+      - name: Write production app configuration
+        env:
+          RESQ_API_BASE_URL: ${{ vars.RESQ_API_BASE_URL }}
+          RESQ_FCM_VAPID_KEY: ${{ vars.RESQ_FCM_VAPID_KEY }}
+        run: python frontend/tool/write_release_config.py "$RUNNER_TEMP/resq-production.json"
 
       # --- Optional real code signing -----------------------------------------------------
       # Configure these repo secrets to produce a properly signed, TestFlight-ready .ipa
@@ -311,7 +340,7 @@ jobs:
       - name: Build signed release IPA
         if: steps.signing.outputs.signed == 'true'
         working-directory: frontend
-        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist --dart-define-from-file="$RUNNER_TEMP/resq-production.json"
 
       - name: Prepare signed IPA artifact
         if: steps.signing.outputs.signed == 'true'
@@ -324,7 +353,7 @@ jobs:
         if: steps.signing.outputs.signed == 'false'
         run: |
           cd frontend
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --dart-define-from-file="$RUNNER_TEMP/resq-production.json"
           cd ..
           mkdir -p Payload release
           cp -R frontend/build/ios/iphoneos/Runner.app Payload/Runner.app
@@ -336,53 +365,51 @@ jobs:
           name: ios-ipa
           path: release/*.ipa
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
 
-  publish-release:
-    name: Publish GitHub Release
-    needs:
-      - build-android
-      - build-ios
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-
+  build-web:
+    name: Build and smoke-test production web
+    needs: validate
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: write
-
+    timeout-minutes: 30
     steps:
-      - name: Download Android release artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          name: android-release
-          path: release
-
-      - name: Download iOS artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: ios-ipa
-          path: release
-
-      - name: Publish GitHub Release
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        working-directory: frontend
+        run: flutter pub get
+      - name: Write production app configuration
         env:
-          GH_TOKEN: ${{ github.token }}
+          RESQ_API_BASE_URL: ${{ vars.RESQ_API_BASE_URL }}
+          RESQ_FCM_VAPID_KEY: ${{ vars.RESQ_FCM_VAPID_KEY }}
+        run: python frontend/tool/write_release_config.py "$RUNNER_TEMP/resq-production.json"
+      - name: Build web
+        working-directory: frontend
+        run: flutter build web --release --dart-define-from-file="$RUNNER_TEMP/resq-production.json"
+      - name: Check hosted files and embedded API URL
+        env:
+          RESQ_API_BASE_URL: ${{ vars.RESQ_API_BASE_URL }}
         run: |
-          cd release
-          sha256sum ./* > SHA256SUMS.txt
-
-          if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Release $RELEASE_TAG already exists; replacing its build assets."
-            gh release upload \
-              "$RELEASE_TAG" \
-              ./* \
-              --repo "${{ github.repository }}" \
-              --clobber
-          else
-            gh release create \
-              "$RELEASE_TAG" \
-              ./* \
-              --repo "${{ github.repository }}" \
-              --target "${{ github.sha }}" \
-              --title "$RELEASE_NAME" \
-              --generate-notes
-          fi
+          test -f frontend/build/web/index.html
+          test -f frontend/build/web/main.dart.js
+          grep -Fq "$RESQ_API_BASE_URL" frontend/build/web/main.dart.js
+          ! grep -Fq 'http://localhost:8080' frontend/build/web/main.dart.js
+          python -m http.server 8765 --directory frontend/build/web >/tmp/resq-web.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          sleep 2
+          curl --fail --silent http://127.0.0.1:8765/ >/dev/null
+          curl --fail --silent http://127.0.0.1:8765/main.dart.js >/dev/null
+      - name: Upload exact web build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: web-release
+          path: frontend/build/web
+          if-no-files-found: error
+          retention-days: 3

@@ -1,109 +1,229 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
-import '../../../theme/app_theme.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../theme/app_theme.dart';
 import '../data/assistant_api.dart';
-import '../data/realtime_voice_client.dart';
+import '../domain/voice_turn_policy.dart';
 
-class AssistantVoiceScreen extends StatefulWidget {
+class AssistantVoiceScreen extends ConsumerStatefulWidget {
   const AssistantVoiceScreen({super.key, this.conversationId});
 
   final String? conversationId;
 
   @override
-  State<AssistantVoiceScreen> createState() => _AssistantVoiceScreenState();
+  ConsumerState<AssistantVoiceScreen> createState() =>
+      _AssistantVoiceScreenState();
 }
 
-class _AssistantVoiceScreenState extends State<AssistantVoiceScreen> {
+class _AssistantVoiceScreenState extends ConsumerState<AssistantVoiceScreen> {
   final _api = AssistantApi();
-  final _voiceClient = RealtimeVoiceClient();
+  final _speech = SpeechToText();
+  final _tts = FlutterTts();
+  final _history = <AssistantPromptMessage>[];
   String? _conversationId;
-  bool _connecting = true;
-  bool _connected = false;
-  bool _muted = false;
   String? _error;
   String? _userTranscript;
   String? _assistantTranscript;
+  bool _active = false;
+  bool _listening = false;
+  bool _processing = false;
+  bool _speaking = false;
+  bool _headphonesMode = false;
+  int _generation = 0;
 
   @override
   void initState() {
     super.initState();
-    _connect();
+    _conversationId = widget.conversationId;
   }
 
-  Future<void> _connect() async {
-    await _voiceClient.close();
-    if (!mounted) return;
-    setState(() {
-      _connecting = true;
-      _connected = false;
-      _muted = false;
-      _error = null;
-    });
+  Future<void> _start() async {
+    if (_active) return;
+    setState(() => _error = null);
     try {
-      final session = await _api.createVoiceSession(
-        conversationId: _conversationId ?? widget.conversationId,
-        language: Localizations.localeOf(context).languageCode,
+      final available = await _speech.initialize(
+        onError: (error) {
+          if (mounted && _active && error.permanent) {
+            setState(() {
+              _error = 'Speech recognition is unavailable. Use the keyboard to continue.';
+              _active = false;
+              _listening = false;
+            });
+          }
+        },
+        onStatus: (status) {
+          if (!mounted || !_active) return;
+          if (status == 'done' || status == 'notListening') {
+            setState(() => _listening = false);
+            if (!_processing && !_speaking) {
+              Future.delayed(const Duration(milliseconds: 350), () {
+                if (mounted &&
+                    _active &&
+                    !_processing &&
+                    !_speaking &&
+                    !_listening) {
+                  unawaited(_listen());
+                }
+              });
+            }
+          }
+        },
       );
+      if (!available) throw StateError('Speech recognition unavailable');
+      await _tts.awaitSpeakCompletion(true);
       if (!mounted) return;
-      setState(() {
-        _conversationId = session.conversationId;
-      });
-      await _voiceClient.connect(
-        session: session,
-        onConnected: () {
-          if (!mounted) return;
-          setState(() {
-            _connecting = false;
-            _connected = true;
-          });
-        },
-        onError: (message) {
-          if (!mounted) return;
-          setState(() {
-            _connecting = false;
-            _connected = false;
-            _error = message;
-          });
-        },
-        onUserTranscript: (transcript) {
-          if (!mounted) return;
-          setState(() => _userTranscript = transcript);
-          unawaited(
-            _api.saveVoiceTranscript(
-              conversationId: session.conversationId,
-              userText: transcript,
-            ),
-          );
-        },
-        onAssistantTranscript: (transcript) {
-          if (!mounted) return;
-          setState(() => _assistantTranscript = transcript);
-          unawaited(
-            _api.saveVoiceTranscript(
-              conversationId: session.conversationId,
-              assistantText: transcript,
-            ),
-          );
-        },
-      );
+      setState(() => _active = true);
+      await _listen();
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _connecting = false;
-        _error = 'Voice could not connect. You can continue this conversation with the keyboard.';
-      });
+      if (mounted) {
+        setState(
+          () => _error = 'Voice is unavailable on this device. Use the keyboard to continue.',
+        );
+      }
     }
   }
 
+  Future<void> _listen() async {
+    if (!_active ||
+        _listening ||
+        _processing ||
+        (_speaking &&
+            !canListenDuringSpeech(headphonesMode: _headphonesMode))) {
+      return;
+    }
+    try {
+      await _speech.listen(
+        onResult: (result) {
+          if (!mounted || !_active) return;
+          final words = result.recognizedWords.trim();
+          if (words.isNotEmpty) {
+            setState(() => _userTranscript = words);
+            if (_speaking && _headphonesMode) {
+              unawaited(_tts.stop());
+              setState(() => _speaking = false);
+            }
+          }
+          if (result.finalResult && words.isNotEmpty) {
+            unawaited(_answer(words));
+          }
+        },
+        listenOptions: SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: false,
+          listenFor: const Duration(seconds: 25),
+          pauseFor: const Duration(seconds: 3),
+          localeId: Localizations.localeOf(context).languageCode == 'hi'
+              ? 'hi_IN'
+              : 'en_IN',
+        ),
+      );
+      if (mounted && _active) setState(() => _listening = true);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _active = false;
+          _listening = false;
+          _error = 'Microphone access failed. Use the keyboard to continue.';
+        });
+      }
+    }
+  }
+
+  Future<void> _answer(String words) async {
+    if (!_active || _processing) return;
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final generation = ++_generation;
+    setState(() {
+      _processing = true;
+      _listening = false;
+      _speaking = false;
+      _assistantTranscript = null;
+    });
+    await _speech.stop();
+    await _tts.stop();
+    try {
+      final id =
+          _conversationId ??
+          await _api.createConversation(language: languageCode);
+      _conversationId = id;
+      final answer = StringBuffer();
+      await for (final delta in _api.streamMessage(
+        conversationId: id,
+        text: words,
+        inputType: 'voice',
+        history: _history,
+      )) {
+        if (!mounted || !_active || generation != _generation) return;
+        answer.write(delta);
+        setState(() => _assistantTranscript = answer.toString());
+      }
+      if (!mounted || !_active || generation != _generation) return;
+      final response = answer.toString().trim();
+      if (response.isEmpty) throw StateError('Empty assistant response');
+      _history.addAll([
+        AssistantPromptMessage(role: 'user', text: words),
+        AssistantPromptMessage(role: 'assistant', text: response),
+      ]);
+      setState(() {
+        _processing = false;
+        _speaking = true;
+      });
+      await _tts.setLanguage(languageCode == 'hi' ? 'hi-IN' : 'en-IN');
+      final speaking = _tts.speak(response);
+      if (canListenDuringSpeech(headphonesMode: _headphonesMode)) {
+        unawaited(_listen());
+      }
+      await speaking;
+      if (!mounted || !_active || generation != _generation) return;
+      setState(() => _speaking = false);
+      if (!_listening) await _listen();
+    } catch (error) {
+      if (!mounted || !_active || generation != _generation) return;
+      final strings = AppLocalizations.of(context);
+      final status = error is AssistantApiException ? error.statusCode : null;
+      setState(() {
+        _processing = false;
+        _speaking = false;
+        _error = status == 429
+            ? strings.assistantDailyLimit
+            : status == 503
+            ? strings.assistantUnavailable
+            : 'The assistant could not respond. You can try again or use the keyboard.';
+        if (status == 429) _active = false;
+      });
+      if (_active) await _listen();
+    }
+  }
+
+  Future<void> _stopSpeaking() async {
+    await _tts.stop();
+    if (!mounted || !_active) return;
+    setState(() => _speaking = false);
+    await _listen();
+  }
+
+  Future<void> _end() async {
+    _generation++;
+    setState(() {
+      _active = false;
+      _listening = false;
+      _processing = false;
+      _speaking = false;
+    });
+    await _speech.cancel();
+    await _tts.stop();
+  }
+
   Future<void> _openKeyboard() async {
-    await _voiceClient.close();
+    await _end();
     if (!mounted) return;
-    final id = _conversationId ?? widget.conversationId;
+    final id = _conversationId;
     context.replace(
       Uri(
         path: '/assistant/chat',
@@ -112,23 +232,28 @@ class _AssistantVoiceScreenState extends State<AssistantVoiceScreen> {
     );
   }
 
-  Future<void> _end() async {
-    await _voiceClient.close();
-    if (mounted) Navigator.of(context).pop();
-  }
-
   @override
   void dispose() {
-    unawaited(_voiceClient.close());
+    _generation++;
+    unawaited(_speech.cancel());
+    unawaited(_tts.stop());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final strings = AppLocalizations.of(context);
+    final status = _processing
+        ? 'Thinking'
+        : _speaking
+        ? 'Speaking'
+        : _listening
+        ? 'Listening'
+        : _active
+        ? 'Ready to listen'
+        : 'Voice is off';
     return Scaffold(
       appBar: AppBar(
-        title: Text(strings.voiceAssistant),
+        title: Text(AppLocalizations.of(context).voiceAssistant),
         actions: [
           IconButton(
             tooltip: 'Switch to keyboard',
@@ -141,102 +266,63 @@ class _AssistantVoiceScreenState extends State<AssistantVoiceScreen> {
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_connected)
-                SizedBox.square(
-                  dimension: 1,
-                  child: RTCVideoView(_voiceClient.remoteRenderer),
-                ),
               const Spacer(),
-              Container(
-                width: 156,
-                height: 156,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Theme.of(context).colorScheme.secondary
-                      .withValues(alpha: .14),
-                ),
-                child: Icon(
-                  Icons.graphic_eq_rounded,
-                  size: 72,
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
+              Icon(
+                Icons.graphic_eq_rounded,
+                size: 76,
+                color: Theme.of(context).colorScheme.secondary,
               ),
-              const SizedBox(height: AppSpacing.xl),
-              Text(
-                _connecting
-                    ? 'Connecting…'
-                    : _error != null
-                    ? 'Voice unavailable'
-                    : _muted
-                    ? 'Microphone muted'
-                    : _connected
-                    ? 'Listening'
-                    : 'Starting voice session…',
-                style: Theme.of(context).textTheme.headlineMedium,
+              const SizedBox(height: AppSpacing.lg),
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  status,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                _error ?? 'Speak to ResQ. Switch to keyboard anytime.',
+                _error ?? 'Speak a short question. ResQ will answer aloud and listen again.',
                 textAlign: TextAlign.center,
               ),
               if (_userTranscript != null || _assistantTranscript != null) ...[
                 const SizedBox(height: AppSpacing.lg),
-                Semantics(
-                  liveRegion: true,
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 620),
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainer,
-                      borderRadius: BorderRadius.circular(AppRadius.base),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (_userTranscript != null)
-                          Text('You: ${_userTranscript!}'),
-                        if (_assistantTranscript != null) ...[
-                          const SizedBox(height: AppSpacing.sm),
-                          Text('ResQ: ${_assistantTranscript!}'),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-              if (_error != null) ...[
-                const SizedBox(height: AppSpacing.md),
-                OutlinedButton.icon(
-                  onPressed: _connect,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Try voice again'),
-                ),
+                if (_userTranscript != null) Text('You: $_userTranscript'),
+                if (_assistantTranscript != null)
+                  Text('ResQ: $_assistantTranscript'),
               ],
               const Spacer(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton.filledTonal(
-                    onPressed: !_connected || _error != null
-                        ? null
-                        : () {
-                            setState(() => _muted = !_muted);
-                            _voiceClient.setMuted(_muted);
-                          },
-                    tooltip: _muted ? 'Unmute microphone' : 'Mute microphone',
-                    icon: Icon(
-                      _muted ? Icons.mic_rounded : Icons.mic_off_rounded,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.lg),
-                  IconButton.filled(
-                    onPressed: _end,
-                    tooltip: 'End voice',
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
+              SwitchListTile(
+                title: const Text('Headphones mode'),
+                subtitle: const Text(
+                  'Allows spoken interruption while ResQ speaks.',
+                ),
+                value: _headphonesMode,
+                onChanged: (value) => setState(() => _headphonesMode = value),
               ),
+              const SizedBox(height: AppSpacing.sm),
+              if (!_active)
+                FilledButton.icon(
+                  onPressed: _start,
+                  icon: const Icon(Icons.mic_rounded),
+                  label: const Text('Start voice'),
+                )
+              else ...[
+                if (_speaking)
+                  FilledButton.tonalIcon(
+                    onPressed: _stopSpeaking,
+                    icon: const Icon(Icons.stop_rounded),
+                    label: const Text('Stop speaking'),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: _end,
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text('End voice'),
+                ),
+              ],
             ],
           ),
         ),

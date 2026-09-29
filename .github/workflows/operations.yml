@@ -1,0 +1,103 @@
+name: ResQ Best-Effort Operations
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+    - cron: '7,37 * * * *'
+    - cron: '12 * * * *'
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: resq-operations-${{ github.event.schedule || 'manual' }}
+  cancel-in-progress: false
+
+env:
+  APP_ENV: production
+  FIREBASE_PROJECT_ID: resq-106ed
+  FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.RESQ_FIREBASE_SERVICE_ACCOUNT_JSON }}
+  CLOUDINARY_URL: ${{ secrets.RESQ_CLOUDINARY_URL }}
+  IMD_DISTRICT_IDS: ${{ vars.RESQ_IMD_DISTRICT_IDS }}
+
+jobs:
+  safety-retries:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/5 * * * *'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install backend
+        working-directory: backend
+        run: python -m pip install .
+      - name: Retry SOS inbox delivery
+        working-directory: backend
+        run: python scripts/retry_sos.py
+      - name: Send due check-in reminders
+        working-directory: backend
+        run: python scripts/send_checkin_reminders.py
+
+  official-alerts:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '7,37 * * * *'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install backend
+        working-directory: backend
+        run: python -m pip install .
+      - name: Refresh official feeds
+        working-directory: backend
+        run: python scripts/ingest_alerts.py
+
+  photo-scanning:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '12 * * * *'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install ClamAV and current definitions
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clamav clamav-freshclam
+          sudo systemctl stop clamav-freshclam || true
+          sudo freshclam
+      - name: Install backend
+        working-directory: backend
+        run: python -m pip install .
+      - name: Screen private photos
+        working-directory: backend
+        run: python scripts/scan_photos.py
+      - name: Check job health
+        working-directory: backend
+        run: python scripts/monitor_health.py
+
+  photo-purge:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '23 */6 * * *'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install backend
+        working-directory: backend
+        run: python -m pip install .
+      - name: Purge expired photos
+        working-directory: backend
+        run: python scripts/purge_photos.py
+      - name: Purge old AI usage counters
+        working-directory: backend
+        run: python scripts/purge_ai_usage.py

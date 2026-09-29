@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../../l10n/app_localizations.dart';
 
 class SosEventDetailScreen extends StatelessWidget {
   const SosEventDetailScreen({super.key, required this.eventId});
@@ -11,27 +12,24 @@ class SosEventDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('SOS event')),
-      body: FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        future: FirebaseFirestore.instance
+      appBar: AppBar(title: Text(strings.sosEventTitle)),
+      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
             .collection('sosEvents')
             .doc(eventId)
-            .get(),
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return const Center(
-              child: Text(
-                'This SOS event is unavailable or you do not have access.',
-              ),
-            );
+            return Center(child: Text(strings.sosEventUnavailable));
           }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
           final data = snapshot.data!.data();
           if (data == null) {
-            return const Center(child: Text('This SOS event was not found.'));
+            return Center(child: Text(strings.sosEventMissing));
           }
           final created = data['createdAt'];
           final createdAt = created is Timestamp
@@ -51,17 +49,22 @@ class SosEventDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      'A Family Circle member activated SOS',
+                      strings.sosCircleActivated,
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: AppSpacing.sm),
-                    Text('Status: ${data['status'] ?? 'active'}'),
-                    if (createdAt != null)
-                      Text('Recorded: ${createdAt.toString()}'),
-                    const SizedBox(height: AppSpacing.sm),
-                    const Text(
-                      'Contact the person directly and call emergency services if immediate help is needed. ResQ does not dispatch responders.',
+                    Text(
+                      _deliveryLabel(
+                        data['deliveryStatus'] as String?,
+                        strings,
+                      ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(strings.sosPushUnconfirmed),
+                    if (createdAt != null)
+                      Text('${strings.sosRecordedAt} ${createdAt.toString()}'),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(strings.sosDirectContact),
                   ],
                 ),
               ),
@@ -72,7 +75,7 @@ class SosEventDetailScreen extends StatelessWidget {
                   mode: LaunchMode.externalApplication,
                 ),
                 icon: const Icon(Icons.call_rounded),
-                label: const Text('Call 112'),
+                label: Text(strings.call112),
               ),
             ],
           );
@@ -81,3 +84,11 @@ class SosEventDetailScreen extends StatelessWidget {
     );
   }
 }
+
+String _deliveryLabel(String? status, AppLocalizations strings) =>
+    switch (status) {
+      'inbox_delivered' => strings.sosInboxDelivered,
+      'dispatching' => strings.sosInboxDispatching,
+      'no_recipients' => strings.sosInboxNoRecipients,
+      _ => strings.sosInboxWaiting,
+    };

@@ -32,17 +32,20 @@ FastAPI service:
 - Readiness checklist, verified alert feed, private reports, and nearby safe places
 - Household Circle creation, invitations, emergency check-ins, and consent-aware location UI
 - Durable notification inbox and opt-in FCM device registration
-- Provider-neutral assistant API with streaming text and voice-session negotiation
+- Provider-neutral assistant API with streaming text and device speech input/output
 
-Some production integrations still require operator configuration, including the
-AI provider key, official alert ingestion jobs, private report-photo storage, and
-Apple/Google push credentials.
+Production still requires operator credentials, a free AI provider live pilot,
+scheduled job activation, and physical device checks. The release is a public,
+best-effort safety companion. Digital SOS and alerts can be delayed or unavailable;
+the app keeps the 112 call and manual SMS available. Report photos are private,
+unavailable at 30 days, and automatically deleted by a retrying job.
 
-The connected milestone also includes persisted assistant history, direct
-OpenAI Realtime WebRTC voice transport, consent-filtered structured retrieval,
-private report-photo sanitization and upload, moderation/admin routes, official
-NDMA/IMD ingestion adapters, emergency check-in reminder jobs, profile/privacy
-settings, SOS history, expiring Circle location maps, and URL-based detail routes.
+The connected milestone also includes persisted assistant history, consent-filtered
+retrieval, moderated reports and places, official NDMA/IMD ingestion, emergency
+check-in jobs, account deletion, and an admin console. See the
+[production release guide](RELEASE.md) for exact configuration, testing, deployment,
+monitoring, and rollback steps. See the [data notice](PRIVACY.md) for retention
+and account deletion details.
 
 ## Technology
 
@@ -270,20 +273,17 @@ emulator, use `-Target android`; its configuration uses `10.0.2.2` to reach the
 Windows host.
 
 The checked-in frontend files under `frontend/config/` contain public runtime
-switches only. Flutter reads them with `--dart-define-from-file`. Copy
-`frontend/config/production.example.json` to a CI-managed production JSON file
-and replace the API URL and public VAPID key. Do not put server secrets in a
-Flutter define because they are embedded in the client bundle.
+switches only. Flutter reads them with `--dart-define-from-file`. Release CI
+creates the production JSON file from GitHub variables with
+`frontend/tool/write_release_config.py`. Do not put server secrets in a Flutter
+define because they are embedded in the client bundle.
 
 `backend/.env` is a gitignored local-development file configured for the local
 Firebase emulators. `backend/.env.example` documents local keys, while
 `backend/.env.production.example` documents deployment variables. In production,
-inject `AI_API_KEY`, Firebase credentials, the admin key, and OCI S3-compatible
-credentials through the host secret manager; never upload a populated `.env`.
-
-Realtime voice needs a valid `AI_API_KEY` with Realtime access. Without one, the
-app reports voice as unavailable while text navigation, SOS, and cached safety
-features remain usable.
+inject the selected AI provider key, Firebase credentials, Cloudinary URL, and
+admin key through Render secrets; never upload a populated `.env`. Voice uses
+device speech recognition and text-to-speech with the same backend text quota.
 
 List available devices:
 
@@ -315,44 +315,32 @@ flutter run -d <ios-device-id> --dart-define-from-file=config/local.ios.json
 
 ### Backend jobs
 
-Run these from `backend/` under a trusted scheduler. The check-in job is intended
-to run every minute; ingestion can run every 5–15 minutes depending on official
-source limits.
+Run these from `backend/` under a trusted scheduler. The checked-in GitHub
+Actions workflow runs safety retries about every five minutes, official
+ingestion about every 30 minutes, photo scanning hourly, and photo deletion
+every six hours. GitHub schedules are best effort.
 
 ```shell
 python scripts/ingest_alerts.py
+python scripts/retry_sos.py
 python scripts/send_checkin_reminders.py
+python scripts/scan_photos.py
+python scripts/purge_photos.py
 ```
 
-Set a verified NDMA RSS URL, IMD district API template, and district object IDs in
-the backend environment before enabling ingestion. The IMD template accepts
-`{id}` for each configured district, for example the official district-warning
-endpoint documented by IMD. Report approval is deliberately not an
+The default NDMA SACHET RSS is configured. IMD district IDs are optional and
+must be verified from the official source. Report approval is deliberately not an
 automatic copy: `POST /v1/admin/reports/{reportId}:approve` requires a reviewed
 `public_description` so private text and identifying details are not published.
-Admin moderation routes require `X-Admin-Key` and are never called by the mobile
-client.
+The admin console requires a registered account with the Firebase `admin`
+custom claim. Scheduled admin routes can use `X-Admin-Key`.
 
 ### Production backend and monitoring
 
-Build the API from `backend/` and inject the production variables through the
-hosting platform rather than copying a populated env file into the image:
-
-```shell
-docker build -t resq-api .
-docker run --env-file /run/secrets/resq-api.env -p 127.0.0.1:8080:8080 resq-api
-```
-
-On an Oracle VM, place Caddy, Nginx, or the Oracle load balancer in front of
-`127.0.0.1:8080`, terminate TLS there, allow only HTTPS from the public network,
-and proxy the original request ID. Monitor `GET /v1/health` from an external
-uptime service, alert on repeated 5xx/429 responses, container restarts, ingestion
-failures, FCM failures, object-storage errors, and AI spend/rate limits. Ship the
-JSON request logs to OCI Logging (or another retained log service) and keep the
-ingestion and check-in scripts in separately monitored scheduler jobs. Use at
-least staging and production Firebase projects and keep AI, voice, ingestion,
-and push disabled in the release configuration until their credentials and
-budgets are verified.
+Use `render.yaml` for the Free FastAPI service and follow [RELEASE.md](RELEASE.md).
+Monitor Render health, scheduled GitHub Actions, the admin source-health view,
+Firestore usage, Cloudinary usage, and the free AI allowance. The backend
+reports its deployed commit SHA at `GET /v1/health`.
 
 Expected signed-out flow:
 

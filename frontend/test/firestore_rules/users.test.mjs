@@ -153,12 +153,16 @@ test('only accepted Circle members can read household data', async () => {
     'members',
     'accepted',
   );
-  await assertSucceeds(
+  await assertFails(
     updateDoc(acceptedMember, {
       lastCheckInSafe: true,
       lastCheckInAt: serverTimestamp(),
     }),
   );
+  await assertFails(setDoc(
+    doc(passwordUser('accepted').firestore(), 'householdCircles', 'home', 'checkIns', 'forged'),
+    { userId: 'accepted', safe: true, createdAt: serverTimestamp() },
+  ));
   await assertFails(updateDoc(acceptedMember, { role: 'owner' }));
 });
 
@@ -199,4 +203,46 @@ test('location shares require accepted membership and expire within 24 hours', a
       validShare('owner', 48),
     ),
   );
+});
+
+test('clients cannot forge SOS recipients or delivery status', async () => {
+  const db = passwordUser('owner').firestore();
+  const event = doc(db, 'sosEvents', 'event-1');
+  await assertFails(setDoc(event, {
+    ownerId: 'owner', authorizedUids: ['attacker'], status: 'active',
+  }));
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'householdCircles', 'home'), { name: 'Home' });
+    await setDoc(doc(context.firestore(), 'householdCircles', 'home', 'members', 'member'), {
+      accepted: true,
+    });
+    await setDoc(doc(context.firestore(), 'sosEvents', 'event-1'), {
+      ownerId: 'owner', circleId: 'home', authorizedUids: ['member', 'removed'], status: 'active',
+      deliveryStatus: 'pending',
+    });
+  });
+  await assertFails(updateDoc(event, { deliveryStatus: 'inbox_delivered' }));
+  await assertSucceeds(getDoc(event));
+  await assertSucceeds(getDoc(doc(passwordUser('member').firestore(), 'sosEvents', 'event-1')));
+  await assertFails(getDoc(doc(passwordUser('removed').firestore(), 'sosEvents', 'event-1')));
+  await assertFails(getDoc(doc(passwordUser('attacker').firestore(), 'sosEvents', 'event-1')));
+});
+
+test('reports and assistant conversations must be created by the server', async () => {
+  const db = passwordUser('owner').firestore();
+  await assertFails(setDoc(doc(db, 'incidentReports', 'forged'), {
+    ownerId: 'owner', status: 'pending', description: 'unmoderated',
+  }));
+  await assertFails(setDoc(doc(db, 'conversations', 'forged'), {
+    ownerId: 'owner', title: 'Client supplied',
+  }));
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'conversations', 'legitimate'), {
+      ownerId: 'owner', title: 'From server',
+    });
+  });
+  await assertSucceeds(getDoc(doc(db, 'conversations', 'legitimate')));
+  await assertFails(updateDoc(doc(db, 'conversations', 'legitimate'), {
+    title: 'Tampered',
+  }));
 });

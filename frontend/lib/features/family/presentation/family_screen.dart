@@ -37,7 +37,7 @@ class FamilyScreen extends ConsumerWidget {
 
     final circleId = ref.watch(familyCircleIdProvider(uid));
     final contacts = ref.watch(emergencyContactsProvider(uid));
-    final alerts = ref.watch(activeAlertsProvider).value ?? const [];
+    final alerts = ref.watch(activeAlertsProvider).value?.items ?? const [];
     final emergencyAlerts = alerts
         .where(
           (alert) => const {

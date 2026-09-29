@@ -8,8 +8,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .api.routes import admin, ai, circles, devices, health, places, reports, sos
+from .api.routes import account, admin, ai, alerts, circles, devices, health, places, reports, sos
 from .config import get_settings
+from .services.client_ip import client_ip
 
 settings = get_settings()
 logger = logging.getLogger("resq.api")
@@ -20,7 +21,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
 
@@ -29,7 +30,7 @@ app.add_middleware(
 async def request_id(request: Request, call_next):
     started = time.monotonic()
     request_id = request.headers.get("X-Request-ID", str(uuid4()))
-    client = request.client.host if request.client else "unknown"
+    client = client_ip(request, settings)
     bucket = f"{client}:{'ai' if request.url.path.startswith('/v1/ai/') else 'api'}"
     limit = (
         settings.ai_rate_limit_per_minute
@@ -40,7 +41,11 @@ async def request_id(request: Request, call_next):
     window = _request_windows[bucket]
     while window and window[0] <= now - 60:
         window.popleft()
-    if len(window) >= limit:
+    safety_route = request.url.path == "/v1/sos" or (
+        request.url.path.startswith("/v1/circles/")
+        and request.url.path.endswith("/check-ins")
+    )
+    if not safety_route and len(window) >= limit:
         response = JSONResponse(
             status_code=429,
             content={
@@ -49,7 +54,8 @@ async def request_id(request: Request, call_next):
             headers={"Retry-After": "60"},
         )
     else:
-        window.append(now)
+        if not safety_route:
+            window.append(now)
         response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     logger.info(
@@ -75,3 +81,5 @@ app.include_router(sos.router, prefix="/v1")
 app.include_router(devices.router, prefix="/v1")
 app.include_router(places.router, prefix="/v1")
 app.include_router(admin.router, prefix="/v1")
+app.include_router(account.router, prefix="/v1")
+app.include_router(alerts.router, prefix="/v1")

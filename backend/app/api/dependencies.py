@@ -35,13 +35,25 @@ async def current_user(
 CurrentUser = Annotated[UserContext, Depends(current_user)]
 
 
-async def require_admin(x_admin_key: Annotated[str | None, Header()] = None) -> None:
+async def require_admin(
+    x_admin_key: Annotated[str | None, Header()] = None,
+    authorization: Annotated[str | None, Header()] = None,
+) -> str:
     expected = get_settings().admin_api_key
-    if not expected or not x_admin_key or not secrets.compare_digest(expected, x_admin_key):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "invalid_admin_key"},
-        )
+    if expected and x_admin_key and secrets.compare_digest(expected, x_admin_key):
+        return "scheduled-job"
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            ensure_firebase()
+            decoded = auth.verify_id_token(authorization.removeprefix("Bearer "), check_revoked=True)
+            if decoded.get("admin") is True and decoded.get("firebase", {}).get("sign_in_provider") != "anonymous":
+                return decoded["uid"]
+        except Exception:
+            pass
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={"code": "admin_required"},
+    )
 
 
-AdminAccess = Annotated[None, Depends(require_admin)]
+AdminAccess = Annotated[str, Depends(require_admin)]

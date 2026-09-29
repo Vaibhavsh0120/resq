@@ -1,16 +1,14 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../data/places_repository.dart';
-import '../domain/safe_place.dart';
 
 typedef NearbyPlacesQuery = ({double latitude, double longitude});
 
 final currentPositionProvider = FutureProvider<Position>((ref) async {
   if (!await Geolocator.isLocationServiceEnabled()) {
     throw const LocationUnavailable(
-      'Turn on location services to find nearby safe places.',
+      'services_off',
     );
   }
   var permission = await Geolocator.checkPermission();
@@ -20,7 +18,7 @@ final currentPositionProvider = FutureProvider<Position>((ref) async {
   if (permission == LocationPermission.denied ||
       permission == LocationPermission.deniedForever) {
     throw const LocationUnavailable(
-      'Location permission is needed to sort safe places by distance.',
+      'permission_denied',
     );
   }
   return Geolocator.getCurrentPosition();
@@ -34,11 +32,11 @@ class LocationUnavailable implements Exception {
 }
 
 final placesRepositoryProvider = Provider<PlacesRepository>(
-  (ref) => FirestorePlacesRepository(FirebaseFirestore.instance),
+  (ref) => ApiPlacesRepository(),
 );
 
 final nearbyPlacesProvider =
-    StreamProvider.family<List<SafePlace>, NearbyPlacesQuery>(
+    StreamProvider.family<PlaceFeed, NearbyPlacesQuery>(
       (ref, location) => ref
           .watch(placesRepositoryProvider)
           .watchNearby(

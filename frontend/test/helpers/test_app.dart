@@ -7,7 +7,6 @@ import 'package:resq/app/providers/auth_providers.dart';
 import 'package:resq/features/places/application/places_providers.dart';
 import 'package:resq/features/updates/application/alerts_providers.dart';
 import 'package:resq/features/updates/data/alerts_repository.dart';
-import 'package:resq/features/updates/domain/public_alert.dart';
 import 'package:resq/services/theme_controller.dart';
 import 'package:resq/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -59,5 +58,5 @@ Future<ThemeController> pumpTestApp(
 
 class _EmptyAlertsRepository implements AlertsRepository {
   @override
-  Stream<List<PublicAlert>> watchActive() => Stream.value(const []);
+  Stream<AlertFeed> watchActive() => Stream.value(const AlertFeed());
 }

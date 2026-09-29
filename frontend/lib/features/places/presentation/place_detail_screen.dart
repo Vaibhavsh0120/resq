@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../../widgets/osm_map_attribution.dart';
 import '../domain/safe_place.dart';
 
 class PlaceDetailScreen extends StatelessWidget {
@@ -51,7 +52,7 @@ class PlaceDetailScreen extends StatelessWidget {
               children: [
                 TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'app.resq.safety',
+                  userAgentPackageName: 'com.vaibhav.resq',
                 ),
                 MarkerLayer(
                   markers: [
@@ -67,6 +68,7 @@ class PlaceDetailScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+                const OsmMapAttribution(),
               ],
             ),
           ),

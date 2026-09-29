@@ -349,6 +349,558 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Try again'**
   String get tryAgain;
+
+  /// No description provided for @assistantUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Assistant unavailable. Emergency calling and saved guidance remain available.'**
+  String get assistantUnavailable;
+
+  /// No description provided for @assistantDailyLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily assistant limit reached. Try again tomorrow.'**
+  String get assistantDailyLimit;
+
+  /// No description provided for @assistantTurnsLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'assistant turns left today'**
+  String get assistantTurnsLeft;
+
+  /// No description provided for @assistantConnectionFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The assistant could not connect. Try again later.'**
+  String get assistantConnectionFailure;
+
+  /// No description provided for @homeAlertRegion.
+  ///
+  /// In en, this message translates to:
+  /// **'Alerts for your saved home region'**
+  String get homeAlertRegion;
+
+  /// No description provided for @updatesUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates are unavailable'**
+  String get updatesUnavailable;
+
+  /// No description provided for @updatesRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Pull down to try again. Previously received emergency guidance remains available.'**
+  String get updatesRetry;
+
+  /// No description provided for @setHomeLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Set your home location'**
+  String get setHomeLocation;
+
+  /// No description provided for @noMatchingAlerts.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching active alerts'**
+  String get noMatchingAlerts;
+
+  /// No description provided for @addDistrictState.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a district and state in your profile to see local alerts.'**
+  String get addDistrictState;
+
+  /// No description provided for @noAlertsSafetyNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This does not mean your area is safe. Check the official SACHET feed for more coverage.'**
+  String get noAlertsSafetyNotice;
+
+  /// No description provided for @feedDelayed.
+  ///
+  /// In en, this message translates to:
+  /// **'Feed coverage may be delayed'**
+  String get feedDelayed;
+
+  /// No description provided for @feedChecked.
+  ///
+  /// In en, this message translates to:
+  /// **'Official feed checked'**
+  String get feedChecked;
+
+  /// No description provided for @noFeedRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'No source has refreshed yet.'**
+  String get noFeedRefresh;
+
+  /// No description provided for @sourceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'{source}: unavailable ({status})'**
+  String sourceUnavailable(String source, String status);
+
+  /// No description provided for @sourceNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'not configured'**
+  String get sourceNotConfigured;
+
+  /// No description provided for @sourceRefreshFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'refresh failed'**
+  String get sourceRefreshFailed;
+
+  /// No description provided for @sourceCoveragePartial.
+  ///
+  /// In en, this message translates to:
+  /// **'partial coverage'**
+  String get sourceCoveragePartial;
+
+  /// No description provided for @sourceNotChecked.
+  ///
+  /// In en, this message translates to:
+  /// **'not checked yet'**
+  String get sourceNotChecked;
+
+  /// No description provided for @alertValidFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid for {duration}'**
+  String alertValidFor(String duration);
+
+  /// No description provided for @minutesAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} min ago'**
+  String minutesAgo(int count);
+
+  /// No description provided for @hoursAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} hr ago'**
+  String hoursAgo(int count);
+
+  /// No description provided for @daysAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} days ago'**
+  String daysAgo(int count);
+
+  /// No description provided for @durationMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} min'**
+  String durationMinutes(int count);
+
+  /// No description provided for @durationHours.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} hr'**
+  String durationHours(int count);
+
+  /// No description provided for @durationDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} days'**
+  String durationDays(int count);
+
+  /// No description provided for @expired.
+  ///
+  /// In en, this message translates to:
+  /// **'expired'**
+  String get expired;
+
+  /// No description provided for @alertViewLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'This region has more alerts than this view can show.'**
+  String get alertViewLimited;
+
+  /// No description provided for @openSachet.
+  ///
+  /// In en, this message translates to:
+  /// **'Open official SACHET alerts'**
+  String get openSachet;
+
+  /// No description provided for @aiResponseLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'ResQ AI'**
+  String get aiResponseLabel;
+
+  /// No description provided for @sourcesProvided.
+  ///
+  /// In en, this message translates to:
+  /// **'Sources provided to the assistant'**
+  String get sourcesProvided;
+
+  /// No description provided for @sosRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Digital SOS is being recorded. Call 112 for immediate help.'**
+  String get sosRecording;
+
+  /// No description provided for @sosUnconfirmedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'ResQ could not confirm the online record. Calling 112 and SMS sharing are still available.'**
+  String get sosUnconfirmedHelp;
+
+  /// No description provided for @sosNoRecipients.
+  ///
+  /// In en, this message translates to:
+  /// **'SOS recorded. No accepted Family Circle recipients are available. Call 112 if you need immediate help.'**
+  String get sosNoRecipients;
+
+  /// No description provided for @sosDeliveryPending.
+  ///
+  /// In en, this message translates to:
+  /// **'SOS recorded. Digital delivery is pending. Call 112 if you need immediate help.'**
+  String get sosDeliveryPending;
+
+  /// No description provided for @sosInboxesRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'SOS recorded in Circle inboxes. Push delivery is not guaranteed. Call 112 if you need immediate help.'**
+  String get sosInboxesRecorded;
+
+  /// No description provided for @sosTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency SOS'**
+  String get sosTitle;
+
+  /// No description provided for @sosSending.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending digital SOS'**
+  String get sosSending;
+
+  /// No description provided for @sosRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'SOS recorded'**
+  String get sosRecorded;
+
+  /// No description provided for @sosDigitalUnconfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Digital SOS unconfirmed'**
+  String get sosDigitalUnconfirmed;
+
+  /// No description provided for @sosCountdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending SOS in'**
+  String get sosCountdown;
+
+  /// No description provided for @sosActivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap or hold to start SOS countdown'**
+  String get sosActivate;
+
+  /// No description provided for @sosCancelNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'You have five seconds to cancel before ResQ records the event.'**
+  String get sosCancelNotice;
+
+  /// No description provided for @sosCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel SOS'**
+  String get sosCancel;
+
+  /// No description provided for @sosCountdownCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'SOS countdown cancelled.'**
+  String get sosCountdownCancelled;
+
+  /// No description provided for @sosSmsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask for help by SMS'**
+  String get sosSmsHelp;
+
+  /// No description provided for @sosSmsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'I need emergency help.'**
+  String get sosSmsBody;
+
+  /// No description provided for @sosMyLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'My location:'**
+  String get sosMyLocation;
+
+  /// No description provided for @phoneAppUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No compatible phone app is available.'**
+  String get phoneAppUnavailable;
+
+  /// No description provided for @sosEventTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'SOS event'**
+  String get sosEventTitle;
+
+  /// No description provided for @sosEventUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This SOS event is unavailable or you do not have access.'**
+  String get sosEventUnavailable;
+
+  /// No description provided for @sosEventMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'This SOS event was not found.'**
+  String get sosEventMissing;
+
+  /// No description provided for @sosCircleActivated.
+  ///
+  /// In en, this message translates to:
+  /// **'A Family Circle member activated SOS'**
+  String get sosCircleActivated;
+
+  /// No description provided for @sosPushUnconfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'A push attempt does not confirm that anyone received or read this SOS.'**
+  String get sosPushUnconfirmed;
+
+  /// No description provided for @sosRecordedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Recorded:'**
+  String get sosRecordedAt;
+
+  /// No description provided for @sosDirectContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact the person directly and call emergency services if immediate help is needed. ResQ does not dispatch responders.'**
+  String get sosDirectContact;
+
+  /// No description provided for @sosInboxDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'Recorded in Circle members’ ResQ inboxes'**
+  String get sosInboxDelivered;
+
+  /// No description provided for @sosInboxDispatching.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding this SOS to Circle inboxes'**
+  String get sosInboxDispatching;
+
+  /// No description provided for @sosInboxNoRecipients.
+  ///
+  /// In en, this message translates to:
+  /// **'No accepted Circle recipients are available'**
+  String get sosInboxNoRecipients;
+
+  /// No description provided for @sosInboxWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting to add this SOS to Circle inboxes'**
+  String get sosInboxWaiting;
+
+  /// No description provided for @locationUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Location is unavailable'**
+  String get locationUnavailable;
+
+  /// No description provided for @locationServicesOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on location services to find nearby safe places.'**
+  String get locationServicesOff;
+
+  /// No description provided for @locationPermissionNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow location to sort safe places by distance.'**
+  String get locationPermissionNeeded;
+
+  /// No description provided for @safePlacesUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Safe places are unavailable'**
+  String get safePlacesUnavailable;
+
+  /// No description provided for @checkConnectionRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your connection and try again.'**
+  String get checkConnectionRetry;
+
+  /// No description provided for @noVerifiedPlaces.
+  ///
+  /// In en, this message translates to:
+  /// **'No verified places within 5 km'**
+  String get noVerifiedPlaces;
+
+  /// No description provided for @placeCoverageIncomplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Coverage may be incomplete. Emergency calling remains available from Home.'**
+  String get placeCoverageIncomplete;
+
+  /// No description provided for @placeCoverageLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Search coverage is limited. Check official local sources before travelling.'**
+  String get placeCoverageLimited;
+
+  /// No description provided for @placePartialResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Showing part of the verified places in this area. Search coverage is limited.'**
+  String get placePartialResults;
+
+  /// No description provided for @locationNeededMap.
+  ///
+  /// In en, this message translates to:
+  /// **'Location needed for the map'**
+  String get locationNeededMap;
+
+  /// No description provided for @findingPlaces.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding nearby safe places…'**
+  String get findingPlaces;
+
+  /// No description provided for @deleteAccountTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete your ResQ account?'**
+  String get deleteAccountTitle;
+
+  /// No description provided for @deleteAccountExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Your private data and report photos will be deleted. Public report summaries will be removed. This cannot be undone.'**
+  String get deleteAccountExplanation;
+
+  /// No description provided for @deleteAccountAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account'**
+  String get deleteAccountAction;
+
+  /// No description provided for @deleteAccountData.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account and data'**
+  String get deleteAccountData;
+
+  /// No description provided for @deleteAccountFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Deletion could not finish. Please retry.'**
+  String get deleteAccountFailed;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @localAlerts.
+  ///
+  /// In en, this message translates to:
+  /// **'Local alerts'**
+  String get localAlerts;
+
+  /// No description provided for @district.
+  ///
+  /// In en, this message translates to:
+  /// **'District'**
+  String get district;
+
+  /// No description provided for @state.
+  ///
+  /// In en, this message translates to:
+  /// **'State'**
+  String get state;
+
+  /// No description provided for @districtExample.
+  ///
+  /// In en, this message translates to:
+  /// **'For example, Khagaria'**
+  String get districtExample;
+
+  /// No description provided for @stateExample.
+  ///
+  /// In en, this message translates to:
+  /// **'For example, Bihar'**
+  String get stateExample;
+
+  /// No description provided for @districtStateHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your district and state to match official alerts. Some sources have limited coverage.'**
+  String get districtStateHelp;
+
+  /// No description provided for @personalDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal details'**
+  String get personalDetails;
+
+  /// No description provided for @medicalDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Medical and accessibility details'**
+  String get medicalDetails;
+
+  /// No description provided for @saveInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Save information'**
+  String get saveInformation;
+
+  /// No description provided for @informationSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Your information was saved.'**
+  String get informationSaved;
+
+  /// No description provided for @informationSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your information could not be saved.'**
+  String get informationSaveFailed;
+
+  /// No description provided for @informationLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your information could not be loaded. Check your connection and try again.'**
+  String get informationLoadFailed;
+
+  /// No description provided for @signInEditInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to edit your information.'**
+  String get signInEditInformation;
+
+  /// No description provided for @photoRetentionNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo metadata is removed. Photos are scanned before private review, become inaccessible after 30 days, and are automatically deleted.'**
+  String get photoRetentionNotice;
+
+  /// No description provided for @photoPrivacyNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Reports are private until moderated. Photos are scanned before moderator access, become inaccessible after 30 days, and are automatically deleted. You can delete your account and photos from Profile.'**
+  String get photoPrivacyNotice;
 }
 
 class _AppLocalizationsDelegate

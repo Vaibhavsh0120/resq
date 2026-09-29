@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../../l10n/app_localizations.dart';
 import '../data/app_settings_repository.dart';
 
 class PrivacySettingsScreen extends StatefulWidget {
@@ -62,6 +63,13 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
       body: StreamBuilder<AppSettings>(
         stream: _repository.watch(uid),
         builder: (context, snapshot) {
+          if (snapshot.hasError && _settings == null) {
+            return const Center(
+              child: Text(
+                'Privacy settings could not be loaded. Check your connection and try again.',
+              ),
+            );
+          }
           final settings = _settings ?? snapshot.data;
           if (settings == null) {
             return const Center(child: CircularProgressIndicator());
@@ -111,6 +119,8 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
 
   List<Widget> _privacyTiles(AppSettings settings) => [
     const Text('Choose what ResQ may use when answering you.'),
+    const SizedBox(height: AppSpacing.sm),
+    Text(AppLocalizations.of(context).photoPrivacyNotice),
     const SizedBox(height: AppSpacing.md),
     ExpansionTile(
       leading: const Icon(Icons.auto_awesome_outlined),

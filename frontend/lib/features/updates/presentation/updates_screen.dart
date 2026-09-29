@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/shell/adaptive_app_shell.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/alerts_providers.dart';
+import '../data/alerts_repository.dart';
 import '../domain/public_alert.dart';
 
 class UpdatesScreen extends ConsumerWidget {
@@ -31,7 +33,7 @@ class UpdatesScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
           Text(
-            'Latest nearby',
+            strings.homeAlertRegion,
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: AppSpacing.md),
@@ -42,24 +44,72 @@ class UpdatesScreen extends ConsumerWidget {
             ),
             error: (error, _) => _FeedMessage(
               icon: Icons.cloud_off_rounded,
-              title: 'Updates are unavailable',
-              message: 'Pull down to try again. Previously received emergency guidance remains available.',
+              title: strings.updatesUnavailable,
+              message: strings.updatesRetry,
             ),
-            data: (items) => items.isEmpty
-                ? const _FeedMessage(
-                    icon: Icons.verified_user_outlined,
-                    title: 'No active verified alerts',
-                    message: 'Pull down to check again.',
+            data: (feed) => Column(
+              children: [
+                _FeedStatus(feed: feed),
+                const SizedBox(height: AppSpacing.lg),
+                if (feed.items.isEmpty)
+                  _FeedMessage(
+                    icon: Icons.info_outline_rounded,
+                    title: feed.coverage == 'home_region_missing'
+                        ? strings.setHomeLocation
+                        : strings.noMatchingAlerts,
+                    message: feed.coverage == 'home_region_missing'
+                        ? strings.addDistrictState
+                        : strings.noAlertsSafetyNotice,
                   )
-                : Column(
-                    children: [
-                      for (var index = 0; index < items.length; index++) ...[
-                        _AlertCard(alert: items[index]),
-                        if (index != items.length - 1)
-                          const SizedBox(height: AppSpacing.md),
-                      ],
-                    ],
-                  ),
+                else
+                  for (var index = 0; index < feed.items.length; index++) ...[
+                    _AlertCard(alert: feed.items[index]),
+                    if (index != feed.items.length - 1)
+                      const SizedBox(height: AppSpacing.md),
+                  ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeedStatus extends StatelessWidget {
+  const _FeedStatus({required this.feed});
+  final AlertFeed feed;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
+    final stale = feed.sources.any(
+      (source) =>
+          source.lastCheckedAt == null ||
+          DateTime.now().difference(source.lastCheckedAt!).inMinutes > 90 ||
+          source.status != 'ok' ||
+          source.truncated,
+    );
+    final checked = feed.sources
+        .map((source) => source.status == 'ok' && source.lastCheckedAt != null
+            ? '${source.source}: ${_relativeIssued(strings, source.lastCheckedAt!)}'
+            : strings.sourceUnavailable(source.source, _sourceStatus(strings, source.status)))
+        .join(' • ');
+    return AppSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            stale ? strings.feedDelayed : strings.feedChecked,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 4),
+          Text(checked.isEmpty ? strings.noFeedRefresh : checked),
+          if (feed.coverage == 'limited') Text(strings.alertViewLimited),
+          TextButton(
+            onPressed: () =>
+                launchUrl(Uri.parse('https://sachet.ndma.gov.in/')),
+            child: Text(strings.openSachet),
           ),
         ],
       ),
@@ -106,12 +156,12 @@ class _AlertCard extends StatelessWidget {
                 ],
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '${alert.severity.toUpperCase()} • ${alert.source} • ${_relativeIssued(alert.issuedAt)}',
+                  '${alert.severity.toUpperCase()} • ${alert.source} • ${_relativeIssued(AppLocalizations.of(context), alert.issuedAt)}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Valid for ${_remaining(alert.expiresAt)}',
+                  AppLocalizations.of(context).alertValidFor(_remaining(AppLocalizations.of(context), alert.expiresAt)),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -149,21 +199,28 @@ class _FeedMessage extends StatelessWidget {
   }
 }
 
-String _relativeIssued(DateTime issuedAt) {
+String _relativeIssued(AppLocalizations strings, DateTime issuedAt) {
   final difference = DateTime.now().difference(issuedAt);
   if (difference.inMinutes < 60) {
-    return '${difference.inMinutes.clamp(0, 59)} min ago';
+    return strings.minutesAgo(difference.inMinutes.clamp(0, 59));
   }
-  if (difference.inHours < 24) return '${difference.inHours} hr ago';
-  return '${difference.inDays} days ago';
+  if (difference.inHours < 24) return strings.hoursAgo(difference.inHours);
+  return strings.daysAgo(difference.inDays);
 }
 
-String _remaining(DateTime expiresAt) {
+String _remaining(AppLocalizations strings, DateTime expiresAt) {
   final difference = expiresAt.difference(DateTime.now());
-  if (difference.isNegative) return 'expired';
+  if (difference.isNegative) return strings.expired;
   if (difference.inMinutes < 60) {
-    return '${difference.inMinutes.clamp(1, 59)} min';
+    return strings.durationMinutes(difference.inMinutes.clamp(1, 59));
   }
-  if (difference.inHours < 24) return '${difference.inHours} hr';
-  return '${difference.inDays} days';
+  if (difference.inHours < 24) return strings.durationHours(difference.inHours);
+  return strings.durationDays(difference.inDays);
 }
+
+String _sourceStatus(AppLocalizations strings, String status) => switch (status) {
+  'unconfigured' => strings.sourceNotConfigured,
+  'error' => strings.sourceRefreshFailed,
+  'partial' => strings.sourceCoveragePartial,
+  _ => strings.sourceNotChecked,
+};

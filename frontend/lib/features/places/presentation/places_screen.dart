@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../app/shell/adaptive_app_shell.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_surfaces.dart';
+import '../../../widgets/osm_map_attribution.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/places_providers.dart';
 import '../domain/safe_place.dart';
@@ -34,8 +35,12 @@ class PlacesScreen extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => _PlacesMessage(
             icon: Icons.location_off_rounded,
-            title: 'Location is unavailable',
-            message: error.toString(),
+            title: strings.locationUnavailable,
+            message: error is LocationUnavailable
+                ? error.message == 'services_off'
+                      ? strings.locationServicesOff
+                      : strings.locationPermissionNeeded
+                : strings.checkConnectionRetry,
             onRetry: () => ref.invalidate(currentPositionProvider),
           ),
           data: (value) {
@@ -49,8 +54,8 @@ class PlacesScreen extends ConsumerWidget {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => _PlacesMessage(
                 icon: Icons.cloud_off_rounded,
-                title: 'Safe places are unavailable',
-                message: 'Check your connection and try again.',
+                title: strings.safePlacesUnavailable,
+                message: strings.checkConnectionRetry,
                 onRetry: () => ref.invalidate(
                   nearbyPlacesProvider((
                     latitude: value.latitude,
@@ -58,23 +63,30 @@ class PlacesScreen extends ConsumerWidget {
                   )),
                 ),
               ),
-              data: (items) => items.isEmpty
-                  ? const _PlacesMessage(
+              data: (feed) => feed.items.isEmpty
+                  ? _PlacesMessage(
                       icon: Icons.search_off_rounded,
-                      title: 'No verified places within 5 km',
-                      message: 'Emergency calling remains available from Home.',
+                      title: strings.noVerifiedPlaces,
+                      message: feed.limited
+                          ? strings.placeCoverageLimited
+                          : strings.placeCoverageIncomplete,
                     )
                   : Column(
                       children: [
-                        for (var index = 0; index < items.length; index++) ...[
+                        if (feed.limited) Text(strings.placePartialResults),
+                        for (
+                          var index = 0;
+                          index < feed.items.length;
+                          index++
+                        ) ...[
                           _PlaceCard(
-                            place: items[index],
-                            distanceKm: items[index].distanceKmFrom(
+                            place: feed.items[index],
+                            distanceKm: feed.items[index].distanceKmFrom(
                               value.latitude,
                               value.longitude,
                             ),
                           ),
-                          if (index != items.length - 1)
+                          if (index != feed.items.length - 1)
                             const SizedBox(height: AppSpacing.md),
                         ],
                       ],
@@ -99,6 +111,7 @@ class _MapSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Container(
       height: 220,
       decoration: BoxDecoration(
@@ -116,7 +129,7 @@ class _MapSummary extends StatelessWidget {
               children: [
                 TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'app.resq.safety',
+                  userAgentPackageName: 'com.vaibhav.resq',
                 ),
                 MarkerLayer(
                   markers: [
@@ -132,6 +145,7 @@ class _MapSummary extends StatelessWidget {
                     ),
                   ],
                 ),
+                const OsmMapAttribution(),
               ],
             )
           : Center(
@@ -145,8 +159,8 @@ class _MapSummary extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     hasError
-                        ? 'Location needed for the map'
-                        : 'Finding nearby safe places…',
+                        ? strings.locationNeededMap
+                        : strings.findingPlaces,
                   ),
                 ],
               ),

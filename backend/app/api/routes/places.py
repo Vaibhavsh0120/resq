@@ -3,6 +3,7 @@ from math import asin, cos, radians, sin, sqrt
 from fastapi import APIRouter, Query
 
 from ...integrations.firebase import firestore_client
+from ...services.geo_cells import nearby_cells
 from ..dependencies import CurrentUser
 
 router = APIRouter(prefix="/places", tags=["places"])
@@ -24,19 +25,25 @@ async def nearby_places(
     lat: float = Query(ge=-90, le=90),
     lng: float = Query(ge=-180, le=180),
     radiusKm: float = Query(default=5, gt=0, le=5),
-) -> list[dict]:
-    # Exact distance filtering is intentionally performed server-side. The
-    # verified candidate cap prevents an unbounded public collection scan;
-    # production ingestion should additionally populate geohash partitions.
-    documents = (
-        firestore_client()
-        .collection("safePlaces")
+    cursor: str | None = Query(default=None, max_length=128),
+) -> dict:
+    database = firestore_client()
+    cells = nearby_cells(lat, lng, radiusKm)
+    query = (
+        database.collection("safePlaces")
         .where("verified", "==", True)
-        .limit(500)
-        .stream()
+        .where("geoCell", "in", cells)
+        .order_by("__name__")
+        .limit(101)
     )
+    if cursor:
+        snapshot = database.collection("safePlaces").document(cursor).get()
+        if snapshot.exists:
+            query = query.start_after(snapshot)
+    documents = list(query.stream())
+    page = documents[:100]
     results = []
-    for document in documents:
+    for document in page:
         data = document.to_dict() or {}
         place_lat = data.get("latitude")
         place_lng = data.get("longitude")
@@ -52,4 +59,4 @@ async def nearby_places(
                 }
             )
     results.sort(key=lambda item: item["distanceKm"])
-    return results
+    return {"items": results, "nextCursor": page[-1].id if len(documents) > 100 else None}

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 
+import '../../../core/config/app_config.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/locale_controller.dart';
 import '../../../theme/app_theme.dart';
@@ -47,6 +50,46 @@ class ProfileScreen extends StatelessWidget {
     );
     if (!context.mounted || locale == null) return;
     await controller.setLocale(locale.languageCode == 'und' ? null : locale);
+  }
+
+  Future<void> _deleteAccount(BuildContext context) async {
+    final strings = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.deleteAccountTitle),
+        content: Text(strings.deleteAccountExplanation),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(strings.deleteAccountAction),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    if (token == null) return;
+    try {
+      final response = await http.delete(
+        Uri.parse('${AppConfig.apiBaseUrl}/v1/account'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode != 200) {
+        throw StateError(strings.deleteAccountFailed);
+      }
+      await AuthService.instance.signOut();
+      if (context.mounted) context.go('/');
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(strings.deleteAccountFailed)));
+      }
+    }
   }
 
   void _openSection(BuildContext context, String label) {
@@ -182,6 +225,14 @@ class ProfileScreen extends StatelessWidget {
               icon: const Icon(Icons.logout_rounded),
               label: Text(strings.logout),
             ),
+            if (!isGuest) ...[
+              const SizedBox(height: AppSpacing.md),
+              TextButton.icon(
+                onPressed: () => _deleteAccount(context),
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: Text(strings.deleteAccountData),
+              ),
+            ],
           ],
         ),
       ),
