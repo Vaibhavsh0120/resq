@@ -15,7 +15,7 @@ def test_health_exposes_service_and_provider() -> None:
 
 
 def test_production_health_rejects_missing_core_services(monkeypatch) -> None:
-    monkeypatch.setattr(health_route, "get_settings", lambda: Settings(app_env="production"))
+    monkeypatch.setattr(health_route, "get_settings", lambda: Settings(app_env="production", _env_file=None))
     response = TestClient(app).get("/v1/health")
     assert response.status_code == 503
     assert response.json()["status"] == "degraded"

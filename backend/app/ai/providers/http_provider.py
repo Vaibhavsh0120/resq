@@ -74,7 +74,7 @@ class GroqProvider(HttpTextProvider):
 
 class GeminiProvider(HttpTextProvider):
     def _request(self, prompt: str) -> tuple[str, dict[str, str], dict]:
-        model = self._settings.ai_text_model or "gemini-2.5-flash-lite"
+        model = self._settings.ai_text_model or "gemini-3.1-flash-lite"
         return (
             f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?alt=sse",
             {"x-goog-api-key": self._settings.ai_api_key},

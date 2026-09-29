@@ -26,5 +26,8 @@ dev = ["pytest>=8,<9"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.vercel]
+entrypoint = "app.main:app"
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

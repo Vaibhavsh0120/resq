@@ -10,6 +10,7 @@
     "singleProjectMode": true
   },
   "hosting": {
+    "site": "resq-106ed",
     "public": "build/web",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [{ "source": "**", "destination": "/index.html" }]

@@ -1,20 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "members",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "settings",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "emergencyCheckIn.enabled", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "publicAlerts",
       "queryScope": "COLLECTION",
       "fields": [
@@ -90,5 +76,24 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "members",
+      "fieldPath": "userId",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "settings",
+      "fieldPath": "emergencyCheckIn.enabled",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    }
+  ]
 }

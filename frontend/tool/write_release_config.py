@@ -23,7 +23,7 @@ def main() -> None:
         or hostname in {"localhost", "127.0.0.1", "::1"}
         or any(part in hostname for part in ("placeholder", "example", "invalid"))
     ):
-        raise SystemExit("RESQ_API_BASE_URL must be the deployed HTTPS Render API URL")
+        raise SystemExit("RESQ_API_BASE_URL must be the deployed HTTPS API URL")
     config = {
         "RESQ_APP_ENV": "production",
         "RESQ_API_BASE_URL": api_url,

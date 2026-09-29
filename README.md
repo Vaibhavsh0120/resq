@@ -5,7 +5,7 @@ Firebase. Its long-term goal is to help people prepare for emergencies, receive
 trusted guidance, contact help, coordinate with family, report hazards, and find
 nearby safe places from one application.
 
-> ResQ is currently an early-stage project. It is not a replacement for local
+> ResQ is a best-effort hackathon pilot. It is not a replacement for local
 > emergency services, professional medical advice, or official government alerts.
 
 ## Current milestone
@@ -34,8 +34,9 @@ FastAPI service:
 - Durable notification inbox and opt-in FCM device registration
 - Provider-neutral assistant API with streaming text and device speech input/output
 
-Production still requires operator credentials, a free AI provider live pilot,
-scheduled job activation, and physical device checks. The release is a public,
+The web pilot runs on Firebase Hosting with a Vercel FastAPI backend and a
+Gemini assistant. Scheduled job validation and physical device checks remain.
+The release is a public,
 best-effort safety companion. Digital SOS and alerts can be delayed or unavailable;
 the app keeps the 112 call and manual SMS available. Report photos are private,
 unavailable at 30 days, and automatically deleted by a retrying job.
@@ -151,7 +152,9 @@ the Apple Developer portal, upload it in Firebase Console under Project settings
 contains the Push Notifications entitlement. Validate this on a physical device;
 the Windows development environment cannot produce or sign an iOS build.
 
-Invitation and notification links use `https://resq.app`. Before production,
+The hosted web pilot can serve invitations at
+`https://resq-106ed.web.app/invite/:token`. Native invitation and notification
+app links still use `https://resq.app`; before distributing mobile builds,
 serve an Apple App Site Association file at
 `https://resq.app/.well-known/apple-app-site-association` and an Android Digital
 Asset Links file at `https://resq.app/.well-known/assetlinks.json`, using the
@@ -278,11 +281,11 @@ creates the production JSON file from GitHub variables with
 `frontend/tool/write_release_config.py`. Do not put server secrets in a Flutter
 define because they are embedded in the client bundle.
 
-`backend/.env` is a gitignored local-development file configured for the local
-Firebase emulators. `backend/.env.example` documents local keys, while
+`backend/.env` is a gitignored local operator file currently configured for
+production. Use `backend/.env.example` for emulator settings, while
 `backend/.env.production.example` documents deployment variables. In production,
 inject the selected AI provider key, Firebase credentials, Cloudinary URL, and
-admin key through Render secrets; never upload a populated `.env`. Voice uses
+admin key through Vercel encrypted variables; never upload a populated `.env`. Voice uses
 device speech recognition and text-to-speech with the same backend text quota.
 
 List available devices:
@@ -337,10 +340,12 @@ custom claim. Scheduled admin routes can use `X-Admin-Key`.
 
 ### Production backend and monitoring
 
-Use `render.yaml` for the Free FastAPI service and follow [RELEASE.md](RELEASE.md).
-Monitor Render health, scheduled GitHub Actions, the admin source-health view,
+The production FastAPI service is [on Vercel](https://resq-api.vercel.app/v1/health)
+and the Flutter web app is [on Firebase Hosting](https://resq-106ed.web.app/).
+Follow [RELEASE.md](RELEASE.md) for the service map and operator checks.
+Monitor Vercel health, scheduled GitHub Actions, the admin source-health view,
 Firestore usage, Cloudinary usage, and the free AI allowance. The backend
-reports its deployed commit SHA at `GET /v1/health`.
+reports a commit SHA at `GET /v1/health` when the deployment provides one.
 
 Expected signed-out flow:
 
