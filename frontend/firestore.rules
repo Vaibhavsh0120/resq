@@ -119,9 +119,7 @@ service cloud.firestore {
 
     // Submitted reports remain private until the backend publishes a sanitized projection.
     match /incidentReports/{reportId} {
-      allow create: if isRegisteredAccount()
-        && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.status == 'pending';
+      allow create: if false;
       allow read: if isRegisteredAccount() && resource.data.ownerId == request.auth.uid;
       allow update, delete: if false;
     }
@@ -134,17 +132,12 @@ service cloud.firestore {
       match /members/{memberId} {
         allow read: if isCircleMember(circleId);
         allow create, delete: if false;
-        allow update: if isCircleMember(circleId)
-          && memberId == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['lastCheckInSafe', 'lastCheckInAt'])
-          && request.resource.data.lastCheckInSafe is bool;
+        allow update: if false;
       }
 
       match /checkIns/{checkInId} {
         allow read: if isCircleMember(circleId);
-        allow create: if isCircleMember(circleId)
-          && request.resource.data.userId == request.auth.uid;
+        allow create: if false;
         allow update, delete: if false;
       }
     }
@@ -178,20 +171,20 @@ service cloud.firestore {
     }
 
     match /sosEvents/{eventId} {
-      allow create: if isSignedIn()
-        && request.resource.data.ownerId == request.auth.uid;
+      allow create: if false;
       allow read: if isSignedIn()
         && (resource.data.ownerId == request.auth.uid
-          || request.auth.uid in resource.data.authorizedUids);
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+          || (resource.data.circleId is string
+            && request.auth.uid in resource.data.authorizedUids
+            && isCircleMember(resource.data.circleId)));
+      allow update: if false;
       allow delete: if false;
     }
 
     match /conversations/{conversationId} {
-      allow create: if isRegisteredAccount()
-        && request.resource.data.ownerId == request.auth.uid;
-      allow read, update, delete: if isRegisteredAccount()
+      allow read: if isRegisteredAccount()
         && resource.data.ownerId == request.auth.uid;
+      allow create, update, delete: if false;
 
       match /messages/{messageId} {
         allow read: if isRegisteredAccount()

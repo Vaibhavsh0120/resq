@@ -52,6 +52,7 @@ Map<String, String> _strings(Object? value) {
 
 DateTime? _dateTime(Object? value) {
   if (value is DateTime) return value;
+  if (value is String) return DateTime.tryParse(value);
   final dynamic timestamp = value;
   try {
     return timestamp?.toDate() as DateTime?;

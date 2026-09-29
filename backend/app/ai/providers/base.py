@@ -11,12 +11,3 @@ class AiProvider(ABC):
     async def stream_text(self, *, prompt: str, safety_identifier: str) -> AsyncIterator[str]:
         if False:
             yield ""
-
-    @abstractmethod
-    async def create_voice_session(
-        self,
-        *,
-        safety_identifier: str,
-        language: str,
-        conversation_context: str = "",
-    ) -> dict[str, object]: ...

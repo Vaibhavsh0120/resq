@@ -289,7 +289,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
           if (_photo != null) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Photo metadata is removed before private review.',
+              strings.photoRetentionNotice,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

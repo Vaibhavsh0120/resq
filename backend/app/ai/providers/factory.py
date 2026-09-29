@@ -4,9 +4,16 @@ from ...config import get_settings
 from .base import AiProvider
 from .openai_provider import OpenAiProvider
 from .openai_compatible_provider import OpenAiCompatibleProvider
+from .http_provider import ClaudeProvider, GeminiProvider, GroqProvider
 
 
-def build_ai_provider(settings) -> AiProvider:
+def build_ai_provider(settings, client=None) -> AiProvider:
+    if settings.ai_provider == "groq":
+        return GroqProvider(settings, client=client)
+    if settings.ai_provider == "gemini":
+        return GeminiProvider(settings, client=client)
+    if settings.ai_provider == "claude":
+        return ClaudeProvider(settings, client=client)
     if settings.ai_provider == "openai_compatible":
         return OpenAiCompatibleProvider(settings)
     return OpenAiProvider(settings)

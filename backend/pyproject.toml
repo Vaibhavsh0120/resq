@@ -15,8 +15,9 @@ dependencies = [
   "httpx>=0.28,<1",
   "python-multipart>=0.0.20,<1",
   "pillow>=11,<13",
-  "boto3>=1.40,<2",
+  "cloudinary>=1.44,<2",
   "feedparser>=6.0.12,<7",
+  "defusedxml>=0.7,<1",
 ]
 
 [project.optional-dependencies]

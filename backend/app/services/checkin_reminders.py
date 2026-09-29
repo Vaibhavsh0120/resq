@@ -5,6 +5,15 @@ from datetime import UTC, datetime, timedelta
 from firebase_admin import firestore, messaging
 
 
+def is_checkin_due(now: datetime, expected: str, timezone_offset_minutes: int) -> bool:
+    try:
+        scheduled = datetime.strptime(expected, "%H:%M").time()
+    except ValueError:
+        return False
+    local_now = now + timedelta(minutes=timezone_offset_minutes)
+    return local_now.time().replace(second=0, microsecond=0) >= scheduled
+
+
 def send_due_checkin_reminders(database, now: datetime | None = None) -> int:
     now = now or datetime.now(UTC)
     sent = 0
@@ -35,7 +44,7 @@ def send_due_checkin_reminders(database, now: datetime | None = None) -> int:
         offset = int(checkin.get("timezoneOffsetMinutes") or 0)
         local_now = now + timedelta(minutes=offset)
         expected = str(checkin.get("time") or "09:00")
-        if local_now.strftime("%H:%M") != expected:
+        if not is_checkin_due(now, expected, offset):
             continue
         notification_id = f"checkin-{event_id}-{local_now.date().isoformat()}"
         notification_ref = (
@@ -44,25 +53,11 @@ def send_due_checkin_reminders(database, now: datetime | None = None) -> int:
             .collection("notifications")
             .document(notification_id)
         )
-        if notification_ref.get().exists:
-            continue
         title = "Emergency check-in"
         event_title = event_data.get("title") or "the active emergency"
         if isinstance(event_title, dict):
             event_title = event_title.get("en") or next(iter(event_title.values()), "the active emergency")
         body = f"Let your Family Circle know you are safe during {event_title}."
-        notification_ref.set(
-            {
-                "title": title,
-                "body": body,
-                "severity": "warning",
-                "category": "check_in",
-                "read": False,
-                "createdAt": now,
-                "deepLink": "/app/family",
-                "eventId": event_id,
-            }
-        )
         categories = (settings_document.to_dict() or {}).get(
             "notificationCategories"
         ) or {}
@@ -76,17 +71,46 @@ def send_due_checkin_reminders(database, now: datetime | None = None) -> int:
                 .where("enabled", "==", True)
                 .stream()
             ]
-        tokens = [token for token in tokens if token]
+        tokens = list(dict.fromkeys(token for token in tokens if token))[:500]
+        transaction = database.transaction()
+
+        @firestore.transactional
+        def create_inbox(current_transaction):
+            if notification_ref.get(transaction=current_transaction).exists:
+                return False
+            current_transaction.set(notification_ref, {
+                "title": title,
+                "body": body,
+                "severity": "warning",
+                "category": "check_in",
+                "read": False,
+                "createdAt": now,
+                "deepLink": "/app/family",
+                "eventId": event_id,
+                "pushStatus": "pending" if tokens else "no_devices",
+            })
+            return True
+
+        if not create_inbox(transaction):
+            continue
         if tokens:
+            # Mark the attempt before FCM. A crash can leave this unconfirmed;
+            # the durable inbox remains available without duplicate pushes.
+            notification_ref.update({"pushStatus": "attempted", "pushAttemptedAt": now})
             try:
-                messaging.send_each_for_multicast(
+                result = messaging.send_each_for_multicast(
                     messaging.MulticastMessage(
-                        tokens=tokens[:500],
+                        tokens=tokens,
                         notification=messaging.Notification(title=title, body=body),
                         data={"category": "check_in", "deepLink": "/app/family"},
                     )
                 )
+                notification_ref.update({
+                    "pushStatus": "sent" if result.failure_count == 0 else "partial_failure",
+                    "pushSuccessCount": result.success_count,
+                    "pushFailureCount": result.failure_count,
+                })
             except Exception:
-                pass
+                notification_ref.update({"pushStatus": "unconfirmed", "pushFailureCount": len(tokens)})
         sent += 1
     return sent

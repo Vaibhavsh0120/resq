@@ -18,10 +18,5 @@ class AppConfig {
     defaultValue: 'localhost',
   );
   static const fcmVapidKey = String.fromEnvironment('RESQ_FCM_VAPID_KEY');
-  static const realtimeApiUrl = String.fromEnvironment(
-    'RESQ_REALTIME_API_URL',
-    defaultValue: 'https://api.openai.com/v1/realtime/calls',
-  );
-
   static bool get isProduction => environment == 'production';
 }

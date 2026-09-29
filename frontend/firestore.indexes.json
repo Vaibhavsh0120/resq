@@ -1,6 +1,20 @@
 {
   "indexes": [
     {
+      "collectionGroup": "members",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "settings",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "emergencyCheckIn.enabled", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "publicAlerts",
       "queryScope": "COLLECTION",
       "fields": [
@@ -17,11 +31,21 @@
       ]
     },
     {
+      "collectionGroup": "publicAlerts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "verified", "order": "ASCENDING" },
+        { "fieldPath": "states", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "safePlaces",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "geohash", "order": "ASCENDING" },
-        { "fieldPath": "verified", "order": "ASCENDING" }
+        { "fieldPath": "verified", "order": "ASCENDING" },
+        { "fieldPath": "geoCell", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
       ]
     },
     {

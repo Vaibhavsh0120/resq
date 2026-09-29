@@ -1,10 +1,10 @@
 import asyncio
 import json
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from ...ai.providers.base import AiProvider
@@ -21,14 +21,31 @@ from ...domain.models import (
     ConversationMessage,
     ConversationSummary,
     MessageRequest,
-    VoiceSession,
-    VoiceSessionRequest,
-    VoiceTranscriptRequest,
 )
 from ...integrations.firebase import firestore_client
+from ...config import get_settings
+from ...services.ai_quota import QuotaExceeded, consume_ai_quota, remaining_ai_quota
+from ...services.client_ip import client_ip
 from ..dependencies import CurrentUser
 
 router = APIRouter(prefix="/ai", tags=["assistant"])
+
+
+@router.get("/capabilities")
+async def capabilities(request: Request, user: CurrentUser) -> dict:
+    settings = get_settings()
+    now = datetime.now(UTC)
+    remaining = remaining_ai_quota(
+        firestore_client(), user.uid,
+        client_ip(request, settings),
+        user.is_anonymous, now,
+        guest_limit=settings.ai_guest_daily_limit,
+        registered_limit=settings.ai_registered_daily_limit,
+        ip_limit=settings.ai_guest_ip_daily_limit,
+    )
+    tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return {"available": bool(settings.ai_api_key), "dailyRemaining": remaining,
+            "resetsAt": tomorrow}
 
 
 def _owned_conversation(conversation_id: str, user: CurrentUser):
@@ -109,9 +126,13 @@ async def create_conversation(body: ConversationCreate, user: CurrentUser) -> Co
 async def stream_message(
     conversation_id: str,
     body: MessageRequest,
+    request: Request,
     user: CurrentUser,
     provider: AiProvider = Depends(get_ai_provider),
 ) -> StreamingResponse:
+    settings = get_settings()
+    if not settings.ai_api_key:
+        raise HTTPException(status_code=503, detail={"code": "assistant_unavailable"})
     conversation_ref = None
     history = [item.model_dump() for item in body.history]
     if not user.is_anonymous:
@@ -124,6 +145,18 @@ async def stream_message(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"code": "conversation_not_found"},
             )
+    try:
+        consume_ai_quota(
+            firestore_client(), user.uid,
+            client_ip(request, get_settings()),
+            user.is_anonymous, datetime.now(UTC),
+            guest_limit=settings.ai_guest_daily_limit,
+            registered_limit=settings.ai_registered_daily_limit,
+            ip_limit=settings.ai_guest_ip_daily_limit,
+        )
+    except QuotaExceeded as exc:
+        raise HTTPException(status_code=429, detail={"code": "assistant_daily_limit"}) from exc
+    if conversation_ref is not None:
         history = await asyncio.to_thread(_conversation_history, conversation_ref)
         message_id = str(uuid4())
         conversation_ref.collection("messages").document(message_id).set(
@@ -131,7 +164,7 @@ async def stream_message(
                 "role": "user",
                 "text": body.text,
                 "createdAt": datetime.now(UTC),
-                "inputType": "text",
+                "inputType": body.input_type,
             }
         )
         if snapshot.to_dict().get("title") in (None, "", "New conversation"):
@@ -187,8 +220,7 @@ async def stream_message(
                     "role": "assistant",
                     "text": completed_text,
                     "createdAt": now,
-                    "inputType": "text",
-                    "provider": provider.name,
+                    "inputType": body.input_type,
                     "citations": citations,
                 }
             )
@@ -196,63 +228,3 @@ async def stream_message(
         yield 'event: message.completed\ndata: {"status":"completed"}\n\n'
 
     return StreamingResponse(events(), media_type="text/event-stream")
-
-
-@router.post("/voice/sessions", response_model=VoiceSession)
-async def create_voice_session(
-    body: VoiceSessionRequest,
-    user: CurrentUser,
-    provider: AiProvider = Depends(get_ai_provider),
-) -> VoiceSession:
-    conversation_context = ""
-    if not user.is_anonymous:
-        reference, _ = _owned_conversation(body.conversation_id, user)
-        history = await asyncio.to_thread(_conversation_history, reference)
-        consent = await asyncio.to_thread(
-            authorized_consent_categories,
-            user.uid,
-            set(body.consent_categories),
-        )
-        rag_context = await asyncio.to_thread(retrieve_context, user.uid, consent)
-        conversation_context = json.dumps(
-            {"history": history, "resqContext": rag_context},
-            ensure_ascii=False,
-            default=str,
-        )
-    session = await provider.create_voice_session(
-        safety_identifier=user.uid,
-        language=body.language,
-        conversation_context=conversation_context,
-    )
-    return VoiceSession(
-        conversation_id=body.conversation_id,
-        model=getattr(provider, "_settings").ai_voice_model,
-        **session,
-    )
-
-
-@router.post("/conversations/{conversation_id}/voice-transcript", status_code=204)
-async def save_voice_transcript(
-    conversation_id: str,
-    body: VoiceTranscriptRequest,
-    user: CurrentUser,
-) -> None:
-    reference, data = _owned_conversation(conversation_id, user)
-    now = datetime.now(UTC)
-    batch = firestore_client().batch()
-    for role, text in (("user", body.user_text), ("assistant", body.assistant_text)):
-        if text and text.strip():
-            batch.set(
-                reference.collection("messages").document(str(uuid4())),
-                {
-                    "role": role,
-                    "text": text.strip(),
-                    "createdAt": now,
-                    "inputType": "voice",
-                },
-            )
-    updates: dict[str, object] = {"updatedAt": now}
-    if data.get("title") in (None, "", "New conversation") and body.user_text:
-        updates["title"] = body.user_text.strip()[:80]
-    batch.update(reference, updates)
-    batch.commit()

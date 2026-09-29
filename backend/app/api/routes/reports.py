@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
@@ -9,8 +9,8 @@ from ...integrations.firebase import firestore_client
 from ...integrations.report_storage import ReportPhotoStorage
 from ...services.report_photos import (
     InvalidReportPhoto,
+    MAX_SOURCE_BYTES,
     sanitize_report_photo,
-    scan_report_photo,
 )
 from ..dependencies import CurrentUser
 
@@ -63,27 +63,36 @@ async def upload_report_photo(
     snapshot = report_ref.get()
     if not snapshot.exists or snapshot.to_dict().get("ownerId") != user.uid:
         raise HTTPException(status_code=404, detail={"code": "report_not_found"})
+    if snapshot.to_dict().get("photoState") not in {None, "none"}:
+        raise HTTPException(status_code=409, detail={"code": "photo_already_uploaded"})
     try:
-        source = await photo.read()
+        source = await photo.read(MAX_SOURCE_BYTES + 1)
         settings = get_settings()
-        scan_report_photo(source, settings)
         cleaned = sanitize_report_photo(source)
         object_name = f"incident-reports/{user.uid}/{report_id}/original-sanitized.jpg"
-        storage_uri = ReportPhotoStorage(settings).put(
+        stored = ReportPhotoStorage(settings).put(
             object_name=object_name,
             data=cleaned.bytes,
             content_type=cleaned.content_type,
         )
     except InvalidReportPhoto as exc:
         raise HTTPException(status_code=422, detail={"code": "invalid_photo", "message": str(exc)}) from exc
-    except RuntimeError as exc:
+    except Exception as exc:
         raise HTTPException(status_code=503, detail={"code": "photo_storage_unavailable"}) from exc
-    report_ref.update(
-        {
-            "photoState": "private_pending_moderation",
-            "photoStorageUri": storage_uri,
-            "photoContentType": cleaned.content_type,
-            "updatedAt": datetime.now(UTC),
-        }
-    )
+    now = datetime.now(UTC)
+    try:
+        report_ref.update(
+            {
+                "photoState": "pending_scan",
+                "photoPublicId": stored["publicId"],
+                "photoAssetId": stored["assetId"],
+                "photoContentType": cleaned.content_type,
+                "photoUploadedAt": now,
+                "photoExpiresAt": now + timedelta(days=30),
+                "updatedAt": now,
+            }
+        )
+    except Exception:
+        ReportPhotoStorage(settings).delete(stored["publicId"])
+        raise
     return ReportPhotoUpload(content_type=cleaned.content_type)

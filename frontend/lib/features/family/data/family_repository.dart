@@ -1,5 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+
+import '../../../core/config/app_config.dart';
 import '../domain/family_models.dart';
 
 abstract interface class FamilyRepository {
@@ -95,28 +100,25 @@ class FirestoreFamilyRepository implements FamilyRepository {
 
   @override
   Future<void> checkIn(SafetyCheckIn checkIn) async {
-    final batch = _firestore.batch();
-    final record = _firestore
-        .collection('householdCircles')
-        .doc(checkIn.circleId)
-        .collection('checkIns')
-        .doc();
-    batch.set(record, {
-      ...checkIn.toMap(),
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    batch.update(
-      _firestore
-          .collection('householdCircles')
-          .doc(checkIn.circleId)
-          .collection('members')
-          .doc(checkIn.userId),
-      {
-        'lastCheckInSafe': checkIn.safe,
-        'lastCheckInAt': FieldValue.serverTimestamp(),
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (token == null) throw StateError('Sign in to check in.');
+    final response = await http.post(
+      Uri.parse('${AppConfig.apiBaseUrl}/v1/circles/${checkIn.circleId}/check-ins'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
       },
+      body: jsonEncode({
+        'safe': checkIn.safe,
+        'event_id': checkIn.eventId,
+        'note': checkIn.note,
+        'latitude': checkIn.latitude,
+        'longitude': checkIn.longitude,
+      }),
     );
-    await batch.commit();
+    if (response.statusCode != 200) {
+      throw StateError('Check-in could not be recorded.');
+    }
   }
 
   @override

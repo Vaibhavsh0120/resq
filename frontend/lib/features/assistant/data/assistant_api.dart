@@ -11,6 +11,19 @@ class AssistantApi {
 
   final http.Client _client;
 
+  Future<AssistantCapabilities> capabilities() async {
+    final response = await _client.get(
+      Uri.parse('${AppConfig.apiBaseUrl}/v1/ai/capabilities'),
+      headers: await _headers(),
+    );
+    _ensureSuccess(response);
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return AssistantCapabilities(
+      available: json['available'] as bool? ?? false,
+      dailyRemaining: json['dailyRemaining'] as int? ?? 0,
+    );
+  }
+
   Future<List<AssistantConversation>> listConversations() async {
     final response = await _client.get(
       Uri.parse('${AppConfig.apiBaseUrl}/v1/ai/conversations'),
@@ -48,55 +61,11 @@ class AssistantApi {
     return jsonDecode(response.body)['id'] as String;
   }
 
-  Future<VoiceSession> createVoiceSession({
-    String? conversationId,
-    String language = 'en',
-  }) async {
-    final id = conversationId ?? await createConversation(language: language);
-    final response = await _client.post(
-      Uri.parse('${AppConfig.apiBaseUrl}/v1/ai/voice/sessions'),
-      headers: await _headers(),
-      body: jsonEncode({
-        'conversation_id': id,
-        'language': language,
-        'consent_categories': await _consentCategories(),
-      }),
-    );
-    _ensureSuccess(response);
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    return VoiceSession(
-      conversationId: json['conversation_id'] as String,
-      transport: json['transport'] as String,
-      ephemeralToken: json['ephemeral_token'] as String?,
-    );
-  }
-
-  Future<void> saveVoiceTranscript({
-    required String conversationId,
-    String? userText,
-    String? assistantText,
-  }) async {
-    if ((userText == null || userText.trim().isEmpty) &&
-        (assistantText == null || assistantText.trim().isEmpty)) {
-      return;
-    }
-    final response = await _client.post(
-      Uri.parse(
-        '${AppConfig.apiBaseUrl}/v1/ai/conversations/$conversationId/voice-transcript',
-      ),
-      headers: await _headers(),
-      body: jsonEncode({
-        'user_text': userText,
-        'assistant_text': assistantText,
-      }),
-    );
-    _ensureSuccess(response);
-  }
-
   Stream<String> streamMessage({
     required String conversationId,
     required String text,
     List<AssistantPromptMessage> history = const [],
+    String inputType = 'text',
     void Function(AssistantCitation citation)? onCitation,
   }) async* {
     final request =
@@ -109,6 +78,7 @@ class AssistantApi {
           ..headers.addAll(await _headers())
           ..body = jsonEncode({
             'text': text,
+            'input_type': inputType,
             'history': history
                 .skip(history.length > 20 ? history.length - 20 : 0)
                 .map((message) => message.toJson())
@@ -117,12 +87,15 @@ class AssistantApi {
           });
     final response = await _client.send(request);
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      await response.stream.drain<void>();
       throw AssistantApiException(
         'Assistant request failed (${response.statusCode}).',
+        statusCode: response.statusCode,
       );
     }
 
     String? eventType;
+    var completed = false;
     await for (final line
         in response.stream
             .transform(utf8.decoder)
@@ -137,8 +110,22 @@ class AssistantApi {
         onCitation?.call(AssistantCitation.fromJson(payload));
         continue;
       }
+      if (eventType == 'message.completed') {
+        completed = true;
+        continue;
+      }
+      if (eventType == 'message.error') {
+        throw const AssistantApiException(
+          'The assistant stopped before finishing.',
+        );
+      }
       final delta = payload['delta'] as String?;
       if (delta != null) yield delta;
+    }
+    if (!completed) {
+      throw const AssistantApiException(
+        'The assistant stopped before finishing.',
+      );
     }
   }
 
@@ -183,6 +170,7 @@ class AssistantApi {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw AssistantApiException(
         'Assistant request failed (${response.statusCode}).',
+        statusCode: response.statusCode,
       );
     }
   }
@@ -198,23 +186,21 @@ class AssistantPromptMessage {
 }
 
 class AssistantApiException implements Exception {
-  const AssistantApiException(this.message);
+  const AssistantApiException(this.message, {this.statusCode});
   final String message;
+  final int? statusCode;
 
   @override
   String toString() => message;
 }
 
-class VoiceSession {
-  const VoiceSession({
-    required this.conversationId,
-    required this.transport,
-    this.ephemeralToken,
+class AssistantCapabilities {
+  const AssistantCapabilities({
+    required this.available,
+    required this.dailyRemaining,
   });
-
-  final String conversationId;
-  final String transport;
-  final String? ephemeralToken;
+  final bool available;
+  final int dailyRemaining;
 }
 
 class AssistantConversation {

@@ -24,7 +24,7 @@ class HomeDashboard extends ConsumerWidget {
         : null;
     final readinessComplete =
         readiness?.where((item) => item.completed).length ?? 0;
-    final activeAlerts = ref.watch(activeAlertsProvider).value ?? const [];
+    final activeAlerts = ref.watch(activeAlertsProvider).value?.items ?? const [];
     final activeAlert = activeAlerts.isEmpty ? null : activeAlerts.first;
     return CustomScrollView(
       key: const PageStorageKey('home-scroll'),

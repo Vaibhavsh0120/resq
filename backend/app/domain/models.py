@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class UserContext(BaseModel):
@@ -62,17 +62,6 @@ class ConversationDetail(ConversationSummary):
     messages: list[ConversationMessage] = Field(default_factory=list)
 
 
-class VoiceTranscriptRequest(BaseModel):
-    user_text: str | None = Field(default=None, max_length=8000)
-    assistant_text: str | None = Field(default=None, max_length=8000)
-
-    @model_validator(mode="after")
-    def has_transcript(self):
-        if not (self.user_text or self.assistant_text):
-            raise ValueError("At least one transcript is required")
-        return self
-
-
 class ConversationHistoryItem(BaseModel):
     role: Literal["user", "assistant"]
     text: str = Field(min_length=1, max_length=4000)
@@ -80,26 +69,11 @@ class ConversationHistoryItem(BaseModel):
 
 class MessageRequest(BaseModel):
     text: str = Field(min_length=1, max_length=8000)
+    input_type: Literal["text", "voice"] = "text"
     history: list[ConversationHistoryItem] = Field(default_factory=list, max_length=20)
     consent_categories: set[
         Literal["readiness", "coarse_location", "precise_location", "medical", "family"]
     ] = set()
-
-
-class VoiceSessionRequest(BaseModel):
-    conversation_id: str
-    language: Literal["en", "hi"] = "en"
-    consent_categories: set[
-        Literal["readiness", "coarse_location", "precise_location", "medical", "family"]
-    ] = set()
-
-
-class VoiceSession(BaseModel):
-    transport: Literal["webrtc", "websocket", "chained"]
-    conversation_id: str
-    model: str
-    ephemeral_token: str | None = None
-    expires_at: datetime | None = None
 
 
 HazardType = Literal[
@@ -137,6 +111,32 @@ class ReportApproval(BaseModel):
     public_description: str = Field(min_length=3, max_length=1000)
 
 
+class PlaceVerification(BaseModel):
+    name: str = Field(min_length=2, max_length=160)
+    type: str = Field(min_length=2, max_length=80)
+    latitude: float = Field(ge=6, le=38)
+    longitude: float = Field(ge=68, le=98)
+    source_url: str = Field(pattern=r"^https://", max_length=1000)
+    source_note: str = Field(min_length=3, max_length=500)
+    facilities: list[str] = Field(default_factory=list, max_length=20)
+    phone: str | None = Field(default=None, max_length=40)
+
+
+class CheckInCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    safe: bool
+    event_id: str | None = Field(default=None, max_length=128)
+    note: str | None = Field(default=None, max_length=500)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def complete_location(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("Both coordinates are required for a location")
+        return self
+
+
 class CircleInviteCreate(BaseModel):
     intended_name: str | None = Field(default=None, max_length=120)
     phone_number: str | None = Field(default=None, max_length=32)
@@ -169,6 +169,24 @@ class SosFanoutResult(BaseModel):
     notification_count: int
     push_success_count: int
     push_failure_count: int
+    delivery_status: str
+
+
+class SosCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def complete_location(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("Both coordinates are required for a location")
+        return self
+
+
+class SosCreated(BaseModel):
+    id: str
+    delivery_status: Literal["pending", "no_recipients"]
 
 
 class DeviceRegistration(BaseModel):

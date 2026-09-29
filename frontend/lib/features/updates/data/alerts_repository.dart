@@ -1,46 +1,84 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
+
+import '../../../core/config/app_config.dart';
 import '../domain/public_alert.dart';
 
-abstract interface class AlertsRepository {
-  Stream<List<PublicAlert>> watchActive();
+class AlertFeed {
+  const AlertFeed({
+    this.items = const [],
+    this.coverage = 'unknown',
+    this.sources = const [],
+  });
+
+  final List<PublicAlert> items;
+  final String coverage;
+  final List<AlertSourceHealth> sources;
 }
 
-class FirestoreAlertsRepository implements AlertsRepository {
-  FirestoreAlertsRepository(this._firestore);
+class AlertSourceHealth {
+  const AlertSourceHealth({
+    required this.source,
+    required this.status,
+    this.lastCheckedAt,
+    this.truncated = false,
+  });
 
-  final FirebaseFirestore _firestore;
+  final String source;
+  final String status;
+  final DateTime? lastCheckedAt;
+  final bool truncated;
+}
+
+abstract interface class AlertsRepository {
+  Stream<AlertFeed> watchActive();
+}
+
+class ApiAlertsRepository implements AlertsRepository {
+  ApiAlertsRepository({http.Client? client})
+    : _client = client ?? http.Client();
+
+  final http.Client _client;
 
   @override
-  Stream<List<PublicAlert>> watchActive() {
-    return _firestore
-        .collection('publicAlerts')
-        .where('verified', isEqualTo: true)
-        .orderBy('issuedAt', descending: true)
-        .limit(50)
-        .snapshots()
-        .map((snapshot) {
-          final alerts = snapshot.docs
-              .map((doc) => PublicAlert.fromMap(doc.id, doc.data()))
-              .where((alert) => alert.isActiveAt(DateTime.now()))
-              .toList();
-          alerts.sort((a, b) {
-            final severity = _severityRank(b.severity)
-                .compareTo(_severityRank(a.severity));
-            return severity != 0 ? severity : b.issuedAt.compareTo(a.issuedAt);
-          });
-          return List.unmodifiable(alerts);
-        });
+  Stream<AlertFeed> watchActive() => Stream.fromFuture(_load());
+
+  Future<AlertFeed> _load() async {
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (token == null) throw StateError('Sign in to see local alerts.');
+    final response = await _client.get(
+      Uri.parse('${AppConfig.apiBaseUrl}/v1/alerts/nearby'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) {
+      throw StateError('Alerts could not be loaded.');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final items = (data['items'] as List<dynamic>? ?? const [])
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .map((item) => PublicAlert.fromMap(item['id'] as String, item))
+        .where((item) => item.isActiveAt(DateTime.now()))
+        .toList();
+    items.sort((a, b) => b.issuedAt.compareTo(a.issuedAt));
+    final sources = (data['sourceHealth'] as List<dynamic>? ?? const [])
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .map(
+          (item) => AlertSourceHealth(
+            source: item['source'] as String? ?? 'Source',
+            status: item['status'] as String? ?? 'unknown',
+            lastCheckedAt: DateTime.tryParse(
+              item['lastCheckedAt'] as String? ?? '',
+            ),
+            truncated: item['truncated'] as bool? ?? false,
+          ),
+        )
+        .toList();
+    return AlertFeed(
+      items: List.unmodifiable(items),
+      coverage: data['coverage'] as String? ?? 'unknown',
+      sources: List.unmodifiable(sources),
+    );
   }
 }
-
-int _severityRank(String severity) => switch (severity.toLowerCase()) {
-  'critical' => 4,
-  'extreme' => 4,
-  'severe' => 3,
-  'warning' => 3,
-  'moderate' => 2,
-  'minor' => 1,
-  'info' => 1,
-  _ => 0,
-};

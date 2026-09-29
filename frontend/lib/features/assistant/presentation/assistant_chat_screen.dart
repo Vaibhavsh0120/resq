@@ -29,6 +29,7 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
   bool _sending = false;
   bool _loadingConversation = false;
   bool _loadingHistory = true;
+  AssistantCapabilities? _capabilities;
   List<AssistantConversation> _conversations = const [];
 
   bool get _hasText => _controller.text.trim().isNotEmpty;
@@ -38,8 +39,18 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
     super.initState();
     _conversationId = widget.conversationId;
     _loadHistory();
+    _loadCapabilities();
     if (widget.conversationId != null) {
       _loadConversation(widget.conversationId!);
+    }
+  }
+
+  Future<void> _loadCapabilities() async {
+    try {
+      final capabilities = await _api.capabilities();
+      if (mounted) setState(() => _capabilities = capabilities);
+    } catch (_) {
+      if (mounted) setState(() => _capabilities = null);
     }
   }
 
@@ -155,16 +166,25 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
         });
       }
       await _loadHistory();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
+      final strings = AppLocalizations.of(context);
+      final status = error is AssistantApiException ? error.statusCode : null;
+      final message = status == 429
+          ? strings.assistantDailyLimit
+          : status == 503
+          ? strings.assistantUnavailable
+          : strings.assistantConnectionFailure;
       setState(() {
-        _messages[_messages.length - 1] = (
+        final partial = _messages[responseIndex].text.trim();
+        _messages[responseIndex] = (
           user: false,
-          text: 'I could not connect right now. Emergency calling and saved guidance are still available.',
+          text: partial.isEmpty ? message : '$partial\n\n$message',
         );
       });
     } finally {
       if (mounted) setState(() => _sending = false);
+      _loadCapabilities();
     }
   }
 
@@ -229,6 +249,23 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
           Expanded(
             child: Column(
               children: [
+                if (_capabilities case final capabilities?)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.xs,
+                      AppSpacing.md,
+                      0,
+                    ),
+                    child: Text(
+                      !capabilities.available
+                          ? strings.assistantUnavailable
+                          : capabilities.dailyRemaining == 0
+                          ? strings.assistantDailyLimit
+                          : '${capabilities.dailyRemaining} ${strings.assistantTurnsLeft}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
                 Expanded(
                   child: _loadingConversation
                       ? const Center(child: CircularProgressIndicator())
@@ -262,6 +299,15 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    if (!message.user) ...[
+                                      Text(
+                                        strings.aiResponseLabel,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall,
+                                      ),
+                                      const SizedBox(height: AppSpacing.xs),
+                                    ],
                                     Text(
                                       message.text,
                                       style: TextStyle(
@@ -275,6 +321,12 @@ class _AssistantChatScreenState extends State<AssistantChatScreen> {
                                     if ((_citationsByMessage[index] ?? const [])
                                         .isNotEmpty) ...[
                                       const SizedBox(height: AppSpacing.sm),
+                                      Text(
+                                        strings.sourcesProvided,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall,
+                                      ),
                                       Wrap(
                                         spacing: AppSpacing.xs,
                                         runSpacing: AppSpacing.xs,

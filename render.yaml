@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: resq-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /v1/health
+    autoDeployTrigger: 'off'
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: FIREBASE_PROJECT_ID
+        value: resq-106ed
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://resq-106ed.web.app,https://resq-106ed.firebaseapp.com
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: AI_PROVIDER
+        sync: false
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_TEXT_MODEL
+        sync: false
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: IMD_DISTRICT_IDS
+        value: ''
+      - key: TRUST_CLOUDFLARE_CLIENT_IP
+        value: 'true'

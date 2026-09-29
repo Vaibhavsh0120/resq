@@ -12,11 +12,58 @@ from ...domain.models import (
     CircleInviteAccepted,
     CircleInviteCreate,
     HouseholdCircle,
+    CheckInCreate,
 )
 from ...integrations.firebase import firestore_client
 from ..dependencies import CurrentUser
 
 router = APIRouter(tags=["circles"])
+
+
+@router.post("/circles/{circle_id}/check-ins")
+async def create_check_in(circle_id: str, body: CheckInCreate, user: CurrentUser) -> dict:
+    if user.is_anonymous:
+        raise HTTPException(status_code=403, detail={"code": "registered_account_required"})
+    database = firestore_client()
+    circle = database.collection("householdCircles").document(circle_id)
+    member_ref = circle.collection("members").document(user.uid)
+    member = member_ref.get().to_dict() or {}
+    if not member.get("accepted") or member.get("userId") != user.uid:
+        raise HTTPException(status_code=403, detail={"code": "circle_membership_required"})
+    now = datetime.now(UTC)
+    settings = (database.collection("users").document(user.uid).collection("settings")
+                .document("app").get().to_dict() or {})
+    offset = int((settings.get("emergencyCheckIn") or {}).get("timezoneOffsetMinutes") or 0)
+    offset = max(-840, min(840, offset))
+    local_day = (now + timedelta(minutes=offset)).date()
+    if body.event_id:
+        event = database.collection("emergencyEvents").document(body.event_id).get()
+        event_data = event.to_dict() if event.exists else {}
+        if not event.exists or event_data.get("expiresAt") is None or event_data["expiresAt"] <= now:
+            raise HTTPException(status_code=409, detail={"code": "emergency_event_not_active"})
+    record_id = hashlib.sha256(
+        f"{circle_id}:{user.uid}:{body.event_id or 'general'}:{local_day}".encode()
+    ).hexdigest()[:32]
+    record = circle.collection("checkIns").document(record_id)
+    @firestore.transactional
+    def commit_check_in(transaction):
+        latest_member = member_ref.get(transaction=transaction).to_dict() or {}
+        existing = record.get(transaction=transaction)
+        if not latest_member.get("accepted") or latest_member.get("userId") != user.uid:
+            raise HTTPException(status_code=403, detail={"code": "circle_membership_required"})
+        if existing.exists:
+            return {"id": record_id, "createdAt": existing.to_dict().get("createdAt"), "alreadyRecorded": True}
+        transaction.set(record, {
+            "userId": user.uid, "safe": body.safe, "eventId": body.event_id,
+            "note": body.note.strip() if body.note else None,
+            "location": {"latitude": body.latitude, "longitude": body.longitude}
+                        if body.latitude is not None else None,
+            "createdAt": now,
+        })
+        transaction.update(member_ref, {"lastCheckInSafe": body.safe, "lastCheckInAt": now})
+        return {"id": record_id, "createdAt": now, "alreadyRecorded": False}
+
+    return commit_check_in(database.transaction())
 
 
 def build_circle_records(

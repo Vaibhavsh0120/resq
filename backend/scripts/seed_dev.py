@@ -13,6 +13,8 @@ from firebase_admin import firestore
 
 def _guard_project(project_id: str) -> None:
     emulator = os.getenv("FIRESTORE_EMULATOR_HOST")
+    if not emulator and (project_id == "resq-106ed" or os.getenv("APP_ENV") == "production"):
+        raise SystemExit("Seed refused: production project and environment are never seed targets.")
     allowlist = {
         value.strip()
         for value in os.getenv("RESQ_DEV_PROJECT_ALLOWLIST", "").split(",")
