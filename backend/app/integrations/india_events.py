@@ -119,7 +119,7 @@ async def _fetch_gdacs(now: datetime) -> dict:
 
 
 def purge_old_india_events(database, *, now: datetime | None = None) -> int:
-    """Delete irrelevant events in bounded batches on each scheduled run."""
+    """Delete irrelevant events in bounded batches on each refresh."""
     now = now or datetime.now(UTC)
     removed = 0
     for _ in range(10):

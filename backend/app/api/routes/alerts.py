@@ -4,6 +4,7 @@ from math import isfinite
 from fastapi import APIRouter
 
 from ...integrations.firebase import firestore_client
+from ...integrations.feed_refresh import refresh_if_due
 from ...integrations.official_alerts import matches_region
 from ..dependencies import CurrentUser
 
@@ -26,6 +27,7 @@ def _home_center(home: dict) -> dict[str, float] | None:
 async def india_events(user: CurrentUser) -> dict:
     """India-impacting GDACS events, independent of a user's home region."""
     database = firestore_client()
+    await refresh_if_due(database, 'gdacs')
     now = datetime.now(UTC)
     documents = list(
         database.collection("indiaEvents")
@@ -52,6 +54,7 @@ async def india_events(user: CurrentUser) -> dict:
 @router.get("/nearby")
 async def nearby_alerts(user: CurrentUser) -> dict:
     database = firestore_client()
+    await refresh_if_due(database, 'ndma')
     profile = database.collection("users").document(user.uid).get().to_dict() or {}
     home = profile.get("homeLocation") or {}
     state = str(home.get("state") or "").strip().casefold()

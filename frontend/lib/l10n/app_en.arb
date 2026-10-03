@@ -16,7 +16,7 @@
   "signInSavePlan": "Sign in to save your emergency plan.",
   "askResq": "Ask ResQ",
   "assistantPrompt": "How can I help you prepare?",
-  "updatesSubtitle": "Verified local alerts and changing conditions",
+  "updatesSubtitle": "Local alerts and India-wide disaster events",
   "reportSubtitle": "Share what is happening without putting yourself at risk",
   "familySubtitle": "Emergency contacts and accepted Circle members",
   "placesSubtitle": "Verified help within 5 km",
@@ -46,6 +46,18 @@
   "assistantTurnsLeft": "assistant turns left today",
   "assistantConnectionFailure": "The assistant could not connect. Try again later.",
   "homeAlertRegion": "Alerts for your saved home region",
+  "nearbyUpdates": "Nearby",
+  "acrossIndia": "Across India",
+  "indiaDisasterEvents": "Disaster events across India",
+  "homeCoverageMarker": "Alerts affecting your saved home area",
+  "homeCoverageExplanation": "This pin marks your saved home location for alert coverage. It is not where the incident happened.",
+  "noHomeMapPoint": "Add your home location to show alert coverage on the map.",
+  "indiaEventNotLocalWarning": "These events may affect India. They are not warnings for your saved home area.",
+  "openGdacsReport": "Open GDACS report",
+  "indiaUpdatesUnavailable": "India-wide updates are unavailable",
+  "noIndiaEvents": "No recent India-wide disaster events",
+  "indiaFeedDelayed": "India-wide feed may be delayed",
+  "indiaFeedChecked": "India-wide feed checked",
   "updatesUnavailable": "Updates are unavailable",
   "updatesRetry": "Pull down to try again. Previously received emergency guidance remains available.",
   "setHomeLocation": "Set your home location",
@@ -56,25 +68,76 @@
   "feedChecked": "Official feed checked",
   "noFeedRefresh": "No source has refreshed yet.",
   "sourceUnavailable": "{source}: unavailable ({status})",
-  "@sourceUnavailable": {"placeholders": {"source": {"type": "String"}, "status": {"type": "String"}}},
+  "@sourceUnavailable": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
   "sourceNotConfigured": "not configured",
   "sourceRefreshFailed": "refresh failed",
   "sourceCoveragePartial": "partial coverage",
   "sourceNotChecked": "not checked yet",
   "alertValidFor": "Valid for {duration}",
-  "@alertValidFor": {"placeholders": {"duration": {"type": "String"}}},
+  "@alertValidFor": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
   "minutesAgo": "{count} min ago",
-  "@minutesAgo": {"placeholders": {"count": {"type": "int"}}},
+  "@minutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hoursAgo": "{count} hr ago",
-  "@hoursAgo": {"placeholders": {"count": {"type": "int"}}},
+  "@hoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "daysAgo": "{count} days ago",
-  "@daysAgo": {"placeholders": {"count": {"type": "int"}}},
+  "@daysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationMinutes": "{count} min",
-  "@durationMinutes": {"placeholders": {"count": {"type": "int"}}},
+  "@durationMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationHours": "{count} hr",
-  "@durationHours": {"placeholders": {"count": {"type": "int"}}},
+  "@durationHours": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationDays": "{count} days",
-  "@durationDays": {"placeholders": {"count": {"type": "int"}}},
+  "@durationDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "expired": "expired",
   "alertViewLimited": "This region has more alerts than this view can show.",
   "openSachet": "Open official SACHET alerts",
@@ -139,6 +202,8 @@
   "informationSaveFailed": "Your information could not be saved.",
   "informationLoadFailed": "Your information could not be loaded. Check your connection and try again.",
   "signInEditInformation": "Sign in to edit your information.",
-  "photoRetentionNotice": "Photo metadata is removed. Photos are scanned before private review, become inaccessible after 30 days, and are automatically deleted.",
-  "photoPrivacyNotice": "Reports are private until moderated. Photos are scanned before moderator access, become inaccessible after 30 days, and are automatically deleted. You can delete your account and photos from Profile."
+  "photoRetentionNotice": "Photo metadata is removed. Photos need screening before private review. Access ends after 30 days; operators run deletion manually.",
+  "photoPrivacyNotice": "Reports are private until moderated. Operators screen photos before access and run deletion manually after 30 days. You can delete your account and photos from Profile.",
+  "gdacsAttribution": "Global Disaster Awareness and Coordination System (GDACS)",
+  "signInForUpdates": "Sign in"
 }

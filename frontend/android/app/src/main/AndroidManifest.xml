@@ -47,7 +47,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="resq.app" />
+                    android:host="resq-106ed.web.app" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

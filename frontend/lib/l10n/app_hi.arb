@@ -16,7 +16,7 @@
   "signInSavePlan": "अपनी आपातकालीन योजना सहेजने के लिए साइन इन करें।",
   "askResq": "ResQ से पूछें",
   "assistantPrompt": "मैं तैयारी में आपकी कैसे मदद करूं?",
-  "updatesSubtitle": "सत्यापित स्थानीय चेतावनियां और बदलती स्थितियां",
+  "updatesSubtitle": "स्थानीय चेतावनियां और भारत भर की आपदा घटनाएं",
   "reportSubtitle": "खुद को जोखिम में डाले बिना स्थिति बताएं",
   "familySubtitle": "आपातकालीन संपर्क और स्वीकृत सर्कल सदस्य",
   "placesSubtitle": "5 किमी के भीतर सत्यापित सहायता",
@@ -46,6 +46,18 @@
   "assistantTurnsLeft": "सहायक अनुरोध आज बाकी हैं",
   "assistantConnectionFailure": "सहायक से संपर्क नहीं हो सका। बाद में फिर कोशिश करें।",
   "homeAlertRegion": "आपके सहेजे गए गृह क्षेत्र की चेतावनियां",
+  "nearbyUpdates": "आस-पास",
+  "acrossIndia": "भारत भर में",
+  "indiaDisasterEvents": "भारत भर की आपदा घटनाएं",
+  "homeCoverageMarker": "आपके सहेजे गए गृह क्षेत्र को प्रभावित करने वाली चेतावनियां",
+  "homeCoverageExplanation": "यह निशान चेतावनी कवरेज के लिए आपके सहेजे गए घर का स्थान दिखाता है। यह घटना का स्थान नहीं है।",
+  "noHomeMapPoint": "मानचित्र पर चेतावनी कवरेज देखने के लिए अपने घर का स्थान जोड़ें।",
+  "indiaEventNotLocalWarning": "ये घटनाएं भारत को प्रभावित कर सकती हैं। ये आपके सहेजे गए गृह क्षेत्र की चेतावनियां नहीं हैं।",
+  "openGdacsReport": "GDACS रिपोर्ट खोलें",
+  "indiaUpdatesUnavailable": "भारत भर की जानकारी उपलब्ध नहीं है",
+  "noIndiaEvents": "भारत भर में हाल की कोई आपदा घटना नहीं",
+  "indiaFeedDelayed": "भारत भर की जानकारी में देरी हो सकती है",
+  "indiaFeedChecked": "भारत भर की जानकारी जांची गई",
   "updatesUnavailable": "अपडेट अभी उपलब्ध नहीं हैं",
   "updatesRetry": "फिर कोशिश करने के लिए नीचे खींचें। पहले मिला आपातकालीन मार्गदर्शन उपलब्ध है।",
   "setHomeLocation": "अपना गृह स्थान तय करें",
@@ -56,25 +68,76 @@
   "feedChecked": "आधिकारिक फ़ीड जांची गई",
   "noFeedRefresh": "अभी किसी स्रोत को ताज़ा नहीं किया गया है।",
   "sourceUnavailable": "{source}: उपलब्ध नहीं ({status})",
-  "@sourceUnavailable": {"placeholders": {"source": {"type": "String"}, "status": {"type": "String"}}},
+  "@sourceUnavailable": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
   "sourceNotConfigured": "कॉन्फ़िगर नहीं किया गया",
   "sourceRefreshFailed": "ताज़ा नहीं हो सका",
   "sourceCoveragePartial": "आंशिक कवरेज",
   "sourceNotChecked": "अभी जाँच नहीं हुई",
   "alertValidFor": "अगले {duration} तक मान्य",
-  "@alertValidFor": {"placeholders": {"duration": {"type": "String"}}},
+  "@alertValidFor": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
   "minutesAgo": "{count} मिनट पहले",
-  "@minutesAgo": {"placeholders": {"count": {"type": "int"}}},
+  "@minutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "hoursAgo": "{count} घंटे पहले",
-  "@hoursAgo": {"placeholders": {"count": {"type": "int"}}},
+  "@hoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "daysAgo": "{count} दिन पहले",
-  "@daysAgo": {"placeholders": {"count": {"type": "int"}}},
+  "@daysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationMinutes": "{count} मिनट",
-  "@durationMinutes": {"placeholders": {"count": {"type": "int"}}},
+  "@durationMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationHours": "{count} घंटे",
-  "@durationHours": {"placeholders": {"count": {"type": "int"}}},
+  "@durationHours": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationDays": "{count} दिन",
-  "@durationDays": {"placeholders": {"count": {"type": "int"}}},
+  "@durationDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "expired": "समाप्त",
   "alertViewLimited": "इस क्षेत्र में इस दृश्य से अधिक चेतावनियां हैं।",
   "openSachet": "आधिकारिक SACHET चेतावनियां खोलें",
@@ -139,6 +202,8 @@
   "informationSaveFailed": "आपकी जानकारी सहेजी नहीं जा सकी।",
   "informationLoadFailed": "आपकी जानकारी लोड नहीं हो सकी। कनेक्शन जांचें और फिर कोशिश करें।",
   "signInEditInformation": "अपनी जानकारी बदलने के लिए साइन इन करें।",
-  "photoRetentionNotice": "तस्वीर का मेटाडेटा हटाया जाता है। निजी समीक्षा से पहले तस्वीर की जांच होती है। 30 दिन बाद तस्वीर नहीं देखी जा सकती और वह अपने आप मिटा दी जाती है।",
-  "photoPrivacyNotice": "समीक्षा तक रिपोर्ट निजी रहती हैं। मॉडरेटर के देखने से पहले तस्वीरों की जांच होती है। 30 दिन बाद उन्हें नहीं देखा जा सकता और वे अपने आप मिट जाती हैं। आप प्रोफ़ाइल से अपना खाता और तस्वीरें मिटा सकते हैं।"
+  "photoRetentionNotice": "तस्वीर का मेटाडेटा हटाया जाता है। निजी समीक्षा से पहले जांच जरूरी है। 30 दिन बाद तस्वीर नहीं देखी जा सकती; ऑपरेटर उसे मैन्युअल रूप से मिटाते हैं।",
+  "photoPrivacyNotice": "समीक्षा तक रिपोर्ट निजी रहती हैं। ऑपरेटर तस्वीरों की जांच करते हैं और 30 दिन बाद उन्हें मैन्युअल रूप से मिटाते हैं। आप प्रोफ़ाइल से अपना खाता और तस्वीरें मिटा सकते हैं।",
+  "gdacsAttribution": "वैश्विक आपदा जागरूकता और समन्वय प्रणाली (GDACS)",
+  "signInForUpdates": "साइन इन करें"
 }

@@ -1,32 +1,31 @@
-name: ResQ Best-Effort Operations
+name: ResQ Manual Maintenance
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
-    - cron: '7,37 * * * *'
-    - cron: '12 * * * *'
-    - cron: '23 */6 * * *'
   workflow_dispatch:
+    inputs:
+      task:
+        description: Maintenance to run
+        type: choice
+        options: [all, feeds, safety, photos, health]
+        default: all
 
 permissions:
   contents: read
 
 concurrency:
-  group: resq-operations-${{ github.event.schedule || 'manual' }}
+  group: resq-manual-maintenance
   cancel-in-progress: false
 
-env:
-  APP_ENV: production
-  FIREBASE_PROJECT_ID: resq-106ed
-  FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.RESQ_FIREBASE_SERVICE_ACCOUNT_JSON }}
-  CLOUDINARY_URL: ${{ secrets.RESQ_CLOUDINARY_URL }}
-  IMD_DISTRICT_IDS: ${{ vars.RESQ_IMD_DISTRICT_IDS }}
-
 jobs:
-  safety-retries:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/5 * * * *'
+  maintenance:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
+    env:
+      APP_ENV: production
+      FIREBASE_PROJECT_ID: resq-106ed
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.RESQ_FIREBASE_SERVICE_ACCOUNT_JSON }}
+      CLOUDINARY_URL: ${{ secrets.RESQ_CLOUDINARY_URL }}
+      IMD_DISTRICT_IDS: ${{ vars.RESQ_IMD_DISTRICT_IDS }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -35,69 +34,38 @@ jobs:
       - name: Install backend
         working-directory: backend
         run: python -m pip install .
-      - name: Retry SOS inbox delivery
-        working-directory: backend
-        run: python scripts/retry_sos.py
-      - name: Send due check-in reminders
-        working-directory: backend
-        run: python scripts/send_checkin_reminders.py
-
-  official-alerts:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '7,37 * * * *'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-      - name: Install backend
-        working-directory: backend
-        run: python -m pip install .
-      - name: Refresh official feeds
+      - name: Refresh feeds
+        if: ${{ !cancelled() && (inputs.task == 'all' || inputs.task == 'feeds') }}
         working-directory: backend
         run: python scripts/ingest_alerts.py
-
-  photo-scanning:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '12 * * * *'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-      - name: Install ClamAV and current definitions
+      - name: Retry safety delivery
+        if: ${{ !cancelled() && (inputs.task == 'all' || inputs.task == 'safety') }}
+        working-directory: backend
+        run: python scripts/retry_sos.py
+      - name: Send check-in reminders
+        if: ${{ !cancelled() && (inputs.task == 'all' || inputs.task == 'safety') }}
+        working-directory: backend
+        run: python scripts/send_checkin_reminders.py
+      - name: Install ClamAV definitions
+        if: ${{ !cancelled() && (inputs.task == 'all' || inputs.task == 'photos') }}
         run: |
           sudo apt-get update
           sudo apt-get install -y clamav clamav-freshclam
           sudo systemctl stop clamav-freshclam || true
           sudo freshclam
-      - name: Install backend
-        working-directory: backend
-        run: python -m pip install .
       - name: Screen private photos
+        if: ${{ !cancelled() && (inputs.task == 'all' || inputs.task == 'photos') }}
         working-directory: backend
         run: python scripts/scan_photos.py
-      - name: Check job health
-        working-directory: backend
-        run: python scripts/monitor_health.py
-
-  photo-purge:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '23 */6 * * *'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-      - name: Install backend
-        working-directory: backend
-        run: python -m pip install .
       - name: Purge expired photos
+        if: ${{ !cancelled() && (inputs.task == 'all' || inputs.task == 'photos') }}
         working-directory: backend
         run: python scripts/purge_photos.py
-      - name: Purge old AI usage counters
+      - name: Purge AI usage counters
+        if: ${{ !cancelled() && (inputs.task == 'all' || inputs.task == 'photos') }}
         working-directory: backend
         run: python scripts/purge_ai_usage.py
+      - name: Check maintenance health
+        if: ${{ !cancelled() && (inputs.task == 'all' || inputs.task == 'health') }}
+        working-directory: backend
+        run: python scripts/monitor_health.py

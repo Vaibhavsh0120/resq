@@ -89,7 +89,7 @@ class _SosScreenState extends ConsumerState<SosScreen> {
             deliveryMessage = strings.sosNoRecipients;
           }
         } catch (_) {
-          // The event remains pending for a scheduled backend retry.
+          // The event remains pending for an operator's manual backend retry.
         }
       }
     } catch (_) {

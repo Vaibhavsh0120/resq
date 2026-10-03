@@ -203,7 +203,7 @@ abstract class AppLocalizations {
   /// No description provided for @updatesSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Verified local alerts and changing conditions'**
+  /// **'Local alerts and India-wide disaster events'**
   String get updatesSubtitle;
 
   /// No description provided for @reportSubtitle.
@@ -379,6 +379,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Alerts for your saved home region'**
   String get homeAlertRegion;
+
+  /// No description provided for @nearbyUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Nearby'**
+  String get nearbyUpdates;
+
+  /// No description provided for @acrossIndia.
+  ///
+  /// In en, this message translates to:
+  /// **'Across India'**
+  String get acrossIndia;
+
+  /// No description provided for @indiaDisasterEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'Disaster events across India'**
+  String get indiaDisasterEvents;
+
+  /// No description provided for @homeCoverageMarker.
+  ///
+  /// In en, this message translates to:
+  /// **'Alerts affecting your saved home area'**
+  String get homeCoverageMarker;
+
+  /// No description provided for @homeCoverageExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'This pin marks your saved home location for alert coverage. It is not where the incident happened.'**
+  String get homeCoverageExplanation;
+
+  /// No description provided for @noHomeMapPoint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your home location to show alert coverage on the map.'**
+  String get noHomeMapPoint;
+
+  /// No description provided for @indiaEventNotLocalWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'These events may affect India. They are not warnings for your saved home area.'**
+  String get indiaEventNotLocalWarning;
+
+  /// No description provided for @openGdacsReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Open GDACS report'**
+  String get openGdacsReport;
+
+  /// No description provided for @indiaUpdatesUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'India-wide updates are unavailable'**
+  String get indiaUpdatesUnavailable;
+
+  /// No description provided for @noIndiaEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent India-wide disaster events'**
+  String get noIndiaEvents;
+
+  /// No description provided for @indiaFeedDelayed.
+  ///
+  /// In en, this message translates to:
+  /// **'India-wide feed may be delayed'**
+  String get indiaFeedDelayed;
+
+  /// No description provided for @indiaFeedChecked.
+  ///
+  /// In en, this message translates to:
+  /// **'India-wide feed checked'**
+  String get indiaFeedChecked;
 
   /// No description provided for @updatesUnavailable.
   ///
@@ -893,14 +965,26 @@ abstract class AppLocalizations {
   /// No description provided for @photoRetentionNotice.
   ///
   /// In en, this message translates to:
-  /// **'Photo metadata is removed. Photos are scanned before private review, become inaccessible after 30 days, and are automatically deleted.'**
+  /// **'Photo metadata is removed. Photos need screening before private review. Access ends after 30 days; operators run deletion manually.'**
   String get photoRetentionNotice;
 
   /// No description provided for @photoPrivacyNotice.
   ///
   /// In en, this message translates to:
-  /// **'Reports are private until moderated. Photos are scanned before moderator access, become inaccessible after 30 days, and are automatically deleted. You can delete your account and photos from Profile.'**
+  /// **'Reports are private until moderated. Operators screen photos before access and run deletion manually after 30 days. You can delete your account and photos from Profile.'**
   String get photoPrivacyNotice;
+
+  /// No description provided for @gdacsAttribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Global Disaster Awareness and Coordination System (GDACS)'**
+  String get gdacsAttribution;
+
+  /// No description provided for @signInForUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signInForUpdates;
 }
 
 class _AppLocalizationsDelegate

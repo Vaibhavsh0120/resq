@@ -19,5 +19,5 @@ async def health() -> JSONResponse:
         "service": "resq-api",
         "environment": settings.app_env,
         "ai_available": bool(settings.ai_api_key),
-        "commit": os.getenv("VERCEL_GIT_COMMIT_SHA") or os.getenv("RENDER_GIT_COMMIT", "local"),
+        "commit": settings.resq_release_commit or os.getenv("VERCEL_GIT_COMMIT_SHA") or os.getenv("RENDER_GIT_COMMIT", "local"),
     })

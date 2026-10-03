@@ -31,15 +31,25 @@ FastAPI service:
 - SOS countdown, `112` calling, location-aware event records, Circle fan-out, and SMS fallback
 - Readiness checklist, verified alert feed, private reports, and nearby safe places
 - Household Circle creation, invitations, emergency check-ins, and consent-aware location UI
-- Durable notification inbox and opt-in FCM device registration
+- Durable notification inbox; optional FCM registration on configured mobile devices
 - Provider-neutral assistant API with streaming text and device speech input/output
 
-The web pilot runs on Firebase Hosting with a Vercel FastAPI backend and a
-Gemini assistant. Scheduled job validation and physical device checks remain.
+The [web pilot](https://resq-106ed.web.app/) runs on Firebase Hosting with a
+[Vercel FastAPI backend](https://resq-api.vercel.app/v1/health) and Gemini assistant.
 The release is a public,
 best-effort safety companion. Digital SOS and alerts can be delayed or unavailable;
 the app keeps the 112 call and manual SMS available. Report photos are private,
-unavailable at 30 days, and automatically deleted by a retrying job.
+unavailable at 30 days, and deleted through operator-triggered maintenance.
+
+Updates has two views: **Nearby** shows official alerts affecting your saved
+home district/state and marks coverage at home; **Across India** shows disaster
+events from the Global Disaster Awareness and Coordination System (GDACS) at
+published coordinates. Both have matching cards, source links, and freshness
+labels. GDACS events disappear seven days after their published end date.
+Opening Updates refreshes cached feeds when due, at most once per 30 minutes
+globally, with bounded requests and a five-minute failure backoff.
+The web pilot uses the notification inbox only, as requested; Web Push is not
+configured. iOS push needs APNs credentials and signing outside this no-card pilot.
 
 The connected milestone also includes persisted assistant history, consent-filtered
 retrieval, moderated reports and places, official NDMA/IMD ingestion, emergency
@@ -318,10 +328,14 @@ flutter run -d <ios-device-id> --dart-define-from-file=config/local.ios.json
 
 ### Backend jobs
 
-Run these from `backend/` under a trusted scheduler. The checked-in GitHub
-Actions workflow runs safety retries about every five minutes, official
-ingestion about every 30 minutes, photo scanning hourly, and photo deletion
-every six hours. GitHub schedules are best effort.
+There are **no scheduled GitHub Actions**. The only workflows are manual release
+builds (which also run quality checks) and manual maintenance. In GitHub Actions,
+run **ResQ Manual Maintenance** and choose `all`, `feeds`, `safety`, `photos`, or
+`health`. Feeds also refresh on demand when Updates is opened. Photo screening,
+stored-asset deletion, pending SOS retries, and due check-in reminders require
+the operator to run maintenance; they do not run on a timer.
+
+For local operator maintenance, run from `backend/`:
 
 ```shell
 python scripts/ingest_alerts.py
@@ -336,14 +350,14 @@ must be verified from the official source. Report approval is deliberately not a
 automatic copy: `POST /v1/admin/reports/{reportId}:approve` requires a reviewed
 `public_description` so private text and identifying details are not published.
 The admin console requires a registered account with the Firebase `admin`
-custom claim. Scheduled admin routes can use `X-Admin-Key`.
+custom claim. Trusted operator routes can use `X-Admin-Key`.
 
 ### Production backend and monitoring
 
 The production FastAPI service is [on Vercel](https://resq-api.vercel.app/v1/health)
 and the Flutter web app is [on Firebase Hosting](https://resq-106ed.web.app/).
 Follow [RELEASE.md](RELEASE.md) for the service map and operator checks.
-Monitor Vercel health, scheduled GitHub Actions, the admin source-health view,
+Monitor Vercel health, manual maintenance results, the admin source-health view,
 Firestore usage, Cloudinary usage, and the free AI allowance. The backend
 reports a commit SHA at `GET /v1/health` when the deployment provides one.
 
@@ -404,8 +418,11 @@ or direct Android testing.
 
 ## GitHub Actions
 
-`.github/workflows/build-release.yml` runs analysis/tests and builds Android and
-iOS artifacts. Run it manually or push a semantic version tag such as `v1.0.0`.
+`.github/workflows/build-release.yml` runs analysis/tests and builds Android,
+iOS, and web artifacts. Run it manually against `main` and set a semantic release
+label such as `v1.0.0`. Pushing a tag or opening a pull request starts no Actions.
+The separate CI workflow was removed because the release workflow includes its
+checks. Manual maintenance is kept for production operations.
 
 Without signing secrets, Android produces a release-mode APK signed with the debug
 key and iOS produces an unsigned IPA. Never commit signing material; use GitHub

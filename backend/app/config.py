@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_env: Literal["development", "staging", "production"] = "development"
+    resq_release_commit: str = ""
     ai_provider: Literal["openai", "groq", "gemini", "claude", "openai_compatible"] = "openai"
     ai_api_key: str = ""
     ai_base_url: str | None = None
@@ -17,7 +18,7 @@ class Settings(BaseSettings):
     firebase_auth_emulator_host: str = ""
     firestore_emulator_host: str = ""
     allowed_origins: str = "http://localhost:3000,http://localhost:8080"
-    app_universal_link_base: str = "https://resq.app/invite"
+    app_universal_link_base: str = "https://resq-106ed.web.app/invite"
     cloudinary_url: str = ""
     local_upload_dir: str = ".local/uploads"
     ndma_feed_url: str = "https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml"

@@ -107,7 +107,10 @@ class _AdaptiveAppShellState extends State<AdaptiveAppShell> {
     ];
     final pages = <Widget>[
       HomeDashboard(isGuest: widget.isGuest),
-      const UpdatesScreen(),
+      UpdatesScreen(
+        isActive: _selected == ResQDestination.updates,
+        isGuest: widget.isGuest,
+      ),
       ReportScreen(isGuest: widget.isGuest),
       FamilyScreen(isGuest: widget.isGuest),
       const PlacesScreen(),

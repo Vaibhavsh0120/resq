@@ -4,7 +4,7 @@
 
 **Goal:** Show nearby verified alerts and recent India-impacting disaster events on distinct, map-backed Updates views for v1.0.0.
 
-**Architecture:** The existing GitHub Actions feed job caches bounded GDACS GeoJSON event projections in Firestore and purges out-of-window records. Vercel exposes the India projection and nearby home coverage coordinates. Flutter reads each feed independently and displays either a home-area coverage marker or published event points with matching cards.
+**Architecture:** Request-driven refresh and manual maintenance cache bounded GDACS GeoJSON event projections in Firestore and purges out-of-window records. Vercel exposes the India projection and nearby home coverage coordinates. Flutter reads each feed independently and displays either a home-area coverage marker or published event points with matching cards.
 
 **Tech Stack:** FastAPI, Firebase Admin/Firestore, GitHub Actions, Flutter/Riverpod, `flutter_map` 8, Firebase Hosting, Vercel Hobby.
 
@@ -91,7 +91,7 @@
 - Use existing Firebase project `resq-106ed`, Vercel project `resq-api`, and approved GitHub Actions secrets. No new secret is required.
 
 - [ ] Update docs; run backend, rules, Flutter analysis/tests, production web build, and `git diff --check`. Commit and push `main`.
-- [ ] Run the official-alerts workflow once; confirm `ingestionState/gdacs` is fresh, irrelevant records purge, and `/v1/alerts/india` returns real bounded event points. Check `/v1/alerts/nearby` still matches a registered home region.
+- [ ] Run manual feed maintenance once; confirm `ingestionState/gdacs` is fresh, irrelevant records purge, and `/v1/alerts/india` returns real bounded event points. Check `/v1/alerts/nearby` still matches a registered home region.
 - [ ] Deploy the FastAPI change to Vercel Hobby and Flutter web to Firebase Hosting. Check live Nearby and Across India at phone and desktop widths, marker/card behavior, source links, timestamps, localization, OSM attribution, and empty/error states.
-- [ ] Move the user-approved `v1.0.0` tag to the final verified `main` commit; wait for tag CI, then replace stale GitHub Release assets with artifacts from that exact SHA and update its notes. Verify artifact checksums and release links.
+- [ ] Move the user-approved `v1.0.0` tag to the final verified `main` commit; dispatch the manual release workflow and wait for it, then replace stale GitHub Release assets with artifacts from that exact SHA and update its notes. Verify artifact checksums and release links.
 

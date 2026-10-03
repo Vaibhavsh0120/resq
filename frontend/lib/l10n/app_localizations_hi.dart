@@ -62,8 +62,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get assistantPrompt => 'मैं तैयारी में आपकी कैसे मदद करूं?';
 
   @override
-  String get updatesSubtitle =>
-      'सत्यापित स्थानीय चेतावनियां और बदलती स्थितियां';
+  String get updatesSubtitle => 'स्थानीय चेतावनियां और भारत भर की आपदा घटनाएं';
 
   @override
   String get reportSubtitle => 'खुद को जोखिम में डाले बिना स्थिति बताएं';
@@ -155,6 +154,46 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get homeAlertRegion => 'आपके सहेजे गए गृह क्षेत्र की चेतावनियां';
+
+  @override
+  String get nearbyUpdates => 'आस-पास';
+
+  @override
+  String get acrossIndia => 'भारत भर में';
+
+  @override
+  String get indiaDisasterEvents => 'भारत भर की आपदा घटनाएं';
+
+  @override
+  String get homeCoverageMarker =>
+      'आपके सहेजे गए गृह क्षेत्र को प्रभावित करने वाली चेतावनियां';
+
+  @override
+  String get homeCoverageExplanation =>
+      'यह निशान चेतावनी कवरेज के लिए आपके सहेजे गए घर का स्थान दिखाता है। यह घटना का स्थान नहीं है।';
+
+  @override
+  String get noHomeMapPoint =>
+      'मानचित्र पर चेतावनी कवरेज देखने के लिए अपने घर का स्थान जोड़ें।';
+
+  @override
+  String get indiaEventNotLocalWarning =>
+      'ये घटनाएं भारत को प्रभावित कर सकती हैं। ये आपके सहेजे गए गृह क्षेत्र की चेतावनियां नहीं हैं।';
+
+  @override
+  String get openGdacsReport => 'GDACS रिपोर्ट खोलें';
+
+  @override
+  String get indiaUpdatesUnavailable => 'भारत भर की जानकारी उपलब्ध नहीं है';
+
+  @override
+  String get noIndiaEvents => 'भारत भर में हाल की कोई आपदा घटना नहीं';
+
+  @override
+  String get indiaFeedDelayed => 'भारत भर की जानकारी में देरी हो सकती है';
+
+  @override
+  String get indiaFeedChecked => 'भारत भर की जानकारी जांची गई';
 
   @override
   String get updatesUnavailable => 'अपडेट अभी उपलब्ध नहीं हैं';
@@ -456,9 +495,16 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get photoRetentionNotice =>
-      'तस्वीर का मेटाडेटा हटाया जाता है। निजी समीक्षा से पहले तस्वीर की जांच होती है। 30 दिन बाद तस्वीर नहीं देखी जा सकती और वह अपने आप मिटा दी जाती है।';
+      'तस्वीर का मेटाडेटा हटाया जाता है। निजी समीक्षा से पहले जांच जरूरी है। 30 दिन बाद तस्वीर नहीं देखी जा सकती; ऑपरेटर उसे मैन्युअल रूप से मिटाते हैं।';
 
   @override
   String get photoPrivacyNotice =>
-      'समीक्षा तक रिपोर्ट निजी रहती हैं। मॉडरेटर के देखने से पहले तस्वीरों की जांच होती है। 30 दिन बाद उन्हें नहीं देखा जा सकता और वे अपने आप मिट जाती हैं। आप प्रोफ़ाइल से अपना खाता और तस्वीरें मिटा सकते हैं।';
+      'समीक्षा तक रिपोर्ट निजी रहती हैं। ऑपरेटर तस्वीरों की जांच करते हैं और 30 दिन बाद उन्हें मैन्युअल रूप से मिटाते हैं। आप प्रोफ़ाइल से अपना खाता और तस्वीरें मिटा सकते हैं।';
+
+  @override
+  String get gdacsAttribution =>
+      'वैश्विक आपदा जागरूकता और समन्वय प्रणाली (GDACS)';
+
+  @override
+  String get signInForUpdates => 'साइन इन करें';
 }

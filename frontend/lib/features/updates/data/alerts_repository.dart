@@ -11,11 +11,15 @@ class AlertFeed {
     this.items = const [],
     this.coverage = 'unknown',
     this.sources = const [],
+    this.homeLatitude,
+    this.homeLongitude,
   });
 
   final List<PublicAlert> items;
   final String coverage;
   final List<AlertSourceHealth> sources;
+  final double? homeLatitude;
+  final double? homeLongitude;
 }
 
 class AlertSourceHealth {
@@ -79,6 +83,12 @@ class ApiAlertsRepository implements AlertsRepository {
       items: List.unmodifiable(items),
       coverage: data['coverage'] as String? ?? 'unknown',
       sources: List.unmodifiable(sources),
+      homeLatitude: (data['homeCenter'] as Map?)?['latitude'] is num
+          ? ((data['homeCenter'] as Map)['latitude'] as num).toDouble()
+          : null,
+      homeLongitude: (data['homeCenter'] as Map?)?['longitude'] is num
+          ? ((data['homeCenter'] as Map)['longitude'] as num).toDouble()
+          : null,
     );
   }
 }

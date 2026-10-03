@@ -86,6 +86,9 @@ class _Database:
 
 def _client(monkeypatch, database):
     monkeypatch.setattr(alerts, "firestore_client", lambda: database)
+    async def cached(*args):
+        pass
+    monkeypatch.setattr(alerts, 'refresh_if_due', cached)
     app.dependency_overrides[dependencies.current_user] = lambda: UserContext(uid="guest", is_anonymous=True)
     return TestClient(app)
 

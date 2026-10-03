@@ -61,7 +61,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assistantPrompt => 'How can I help you prepare?';
 
   @override
-  String get updatesSubtitle => 'Verified local alerts and changing conditions';
+  String get updatesSubtitle => 'Local alerts and India-wide disaster events';
 
   @override
   String get reportSubtitle =>
@@ -154,6 +154,45 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeAlertRegion => 'Alerts for your saved home region';
+
+  @override
+  String get nearbyUpdates => 'Nearby';
+
+  @override
+  String get acrossIndia => 'Across India';
+
+  @override
+  String get indiaDisasterEvents => 'Disaster events across India';
+
+  @override
+  String get homeCoverageMarker => 'Alerts affecting your saved home area';
+
+  @override
+  String get homeCoverageExplanation =>
+      'This pin marks your saved home location for alert coverage. It is not where the incident happened.';
+
+  @override
+  String get noHomeMapPoint =>
+      'Add your home location to show alert coverage on the map.';
+
+  @override
+  String get indiaEventNotLocalWarning =>
+      'These events may affect India. They are not warnings for your saved home area.';
+
+  @override
+  String get openGdacsReport => 'Open GDACS report';
+
+  @override
+  String get indiaUpdatesUnavailable => 'India-wide updates are unavailable';
+
+  @override
+  String get noIndiaEvents => 'No recent India-wide disaster events';
+
+  @override
+  String get indiaFeedDelayed => 'India-wide feed may be delayed';
+
+  @override
+  String get indiaFeedChecked => 'India-wide feed checked';
 
   @override
   String get updatesUnavailable => 'Updates are unavailable';
@@ -450,9 +489,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get photoRetentionNotice =>
-      'Photo metadata is removed. Photos are scanned before private review, become inaccessible after 30 days, and are automatically deleted.';
+      'Photo metadata is removed. Photos need screening before private review. Access ends after 30 days; operators run deletion manually.';
 
   @override
   String get photoPrivacyNotice =>
-      'Reports are private until moderated. Photos are scanned before moderator access, become inaccessible after 30 days, and are automatically deleted. You can delete your account and photos from Profile.';
+      'Reports are private until moderated. Operators screen photos before access and run deletion manually after 30 days. You can delete your account and photos from Profile.';
+
+  @override
+  String get gdacsAttribution =>
+      'Global Disaster Awareness and Coordination System (GDACS)';
+
+  @override
+  String get signInForUpdates => 'Sign in';
 }

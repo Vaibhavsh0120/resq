@@ -26,11 +26,11 @@ class PushNotificationService {
   final _client = http.Client();
   bool _configured = false;
 
-  bool get isSupported =>
-      kIsWeb ||
-      defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.iOS ||
-      defaultTargetPlatform == TargetPlatform.macOS;
+  bool get isSupported => kIsWeb
+      ? _webVapidKey.isNotEmpty
+      : (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS);
 
   Future<void> configure() async {
     if (_configured || !isSupported) return;

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+import asyncio
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
@@ -8,7 +9,7 @@ from firebase_admin import firestore
 from ...config import get_settings
 from ...domain.models import PlaceVerification, ReportApproval
 from ...integrations.firebase import firestore_client
-from ...integrations.official_alerts import ingest_imd, ingest_ndma
+from ...integrations.feed_refresh import refresh_if_due
 from ...integrations.report_storage import ReportPhotoStorage
 from ...services.geo_cells import geo_cell
 from ..dependencies import AdminAccess
@@ -143,10 +144,11 @@ async def reject_report(report_id: str, actor: AdminAccess) -> dict[str, bool]:
 
 @router.post("/ingestion:run")
 async def run_ingestion(_: AdminAccess) -> dict[str, int]:
-    settings = get_settings()
+    database = firestore_client()
+    await asyncio.gather(refresh_if_due(database, 'ndma'), refresh_if_due(database, 'gdacs'))
     return {
-        "ndma": await ingest_ndma(settings),
-        "imd": await ingest_imd(settings),
+        name: (database.collection('ingestionState').document(name).get().to_dict() or {}).get('storedCount', 0)
+        for name in ('ndma', 'imd', 'gdacs')
     }
 
 
@@ -189,7 +191,7 @@ async def source_health(_: AdminAccess) -> list[dict]:
     database = firestore_client()
     documents = [
         database.collection("ingestionState").document(name).get()
-        for name in ("ndma", "imd")
+        for name in ("ndma", "imd", "gdacs")
     ] + [
         database.collection("jobHealth").document(name).get()
         for name in ("sos_retry", "checkin", "photo_scan", "photo_purge")

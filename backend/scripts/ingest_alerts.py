@@ -9,24 +9,32 @@ from app.integrations.official_alerts import expire_old_alerts, ingest_imd, inge
 
 async def main() -> None:
     settings = get_settings()
-    ndma_count = await ingest_ndma(settings)
+    database = firestore_client()
+    counts, failures = {}, []
+
+    async def source(name, operation):
+        try:
+            counts[name] = await operation()
+        except Exception as exc:
+            failures.append(name)
+            counts[name] = 0
+            database.collection('ingestionState').document(name).set(
+                {'status': 'error', 'lastError': type(exc).__name__, 'lastErrorAt': datetime.now(UTC)}, merge=True,
+            )
+            print(f'{name.upper()} refresh failed ({type(exc).__name__}); relevant cached records remain available.')
+
     try:
-        imd_count = await ingest_imd(settings)
-    except Exception as exc:
-        firestore_client().collection("ingestionState").document("imd").set(
-            {"status": "error", "lastError": type(exc).__name__, "lastErrorAt": datetime.now(UTC)},
-            merge=True,
+        await asyncio.gather(
+            source('ndma', lambda: ingest_ndma(settings)),
+            source('imd', lambda: ingest_imd(settings)),
+            source('gdacs', lambda: ingest_gdacs(database)),
         )
-        raise
-    try:
-        gdacs_count = await ingest_gdacs(firestore_client())
-    except Exception as exc:
-        # National event coverage is best effort; preserve the local warning run.
-        gdacs_count = 0
-        print(f"GDACS refresh failed ({type(exc).__name__}); relevant cached events remain available.")
-    expired = expire_old_alerts(firestore_client())
-    print(f"Ingested {ndma_count} NDMA, {imd_count} IMD alerts and {gdacs_count} GDACS events; expired {expired} alerts.")
+    finally:
+        expired = expire_old_alerts(database)
+    print(f'Ingested {counts}; expired {expired} local alerts.')
+    if failures:
+        raise SystemExit('Feed maintenance needs attention: ' + ', '.join(failures))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())

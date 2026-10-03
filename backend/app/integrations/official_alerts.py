@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import asyncio
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse
@@ -126,10 +127,10 @@ async def _cached_get(client: httpx.AsyncClient, database, state_id: str, url: s
     return response.content, True
 
 
-async def ingest_ndma(settings: Settings) -> int:
+async def ingest_ndma(settings: Settings, *, database=None) -> int:
     if not settings.ndma_feed_url:
         return 0
-    database = firestore_client()
+    database = database if database is not None else firestore_client()
     updated = 0
     async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
         try:
@@ -137,20 +138,25 @@ async def ingest_ndma(settings: Settings) -> int:
             feed = feedparser.parse(xml)
             if feed.bozo:
                 raise RuntimeError("SACHET RSS could not be parsed")
-            for entry in feed.entries[:100]:
+            semaphore = asyncio.Semaphore(8)
+            failures = []
+
+            async def process(entry):
+                nonlocal updated
                 external_id = entry.get("id") or entry.get("guid")
                 url = entry.get("link", "")
                 if not external_id or urlparse(url).hostname != "sachet.ndma.gov.in":
-                    continue
+                    return
                 try:
-                    cap, changed = await _cached_get(client, database, f"cap-{stable_id('ndma', external_id)}", url)
+                    async with semaphore:
+                        cap, changed = await _cached_get(client, database, f"cap-{stable_id('ndma', external_id)}", url)
                     ref = database.collection("publicAlerts").document(stable_id("ndma", external_id))
                     if not changed:
                         # A previous run may have cached the CAP but failed before
                         # writing its public projection. Recreate that missing row.
                         if ref.get().exists:
                             parse_cap(cap, url, external_id)
-                            continue
+                            return
                     alert = parse_cap(cap, url, external_id)
                     if alert:
                         ref.set(alert)
@@ -164,12 +170,14 @@ async def ingest_ndma(settings: Settings) -> int:
                     else:
                         ref.delete()
                 except Exception as exc:
-                    database.collection("ingestionState").document("ndma").set(
-                        {"status": "partial", "lastError": type(exc).__name__, "lastErrorAt": datetime.now(UTC)}, merge=True
-                    )
+                    failures.append(type(exc).__name__)
+
+            await asyncio.gather(*(process(entry) for entry in feed.entries[:100]))
             database.collection("ingestionState").document("ndma").set(
                 {"feedEntries": len(feed.entries), "processedLimit": 100,
-                 "truncated": len(feed.entries) > 100, "lastRunAt": datetime.now(UTC)}, merge=True
+                 "truncated": len(feed.entries) > 100, "lastRunAt": datetime.now(UTC),
+                 "storedCount": updated, "status": "partial" if failures else "ok",
+                 "lastError": failures[-1] if failures else None}, merge=True
             )
         except Exception as exc:
             database.collection("ingestionState").document("ndma").set(
@@ -179,13 +187,13 @@ async def ingest_ndma(settings: Settings) -> int:
     return updated
 
 
-async def ingest_imd(settings: Settings) -> int:
+async def ingest_imd(settings: Settings, *, database=None) -> int:
+    database = database if database is not None else firestore_client()
     if not settings.imd_district_ids:
-        firestore_client().collection("ingestionState").document("imd").set(
+        database.collection("ingestionState").document("imd").set(
             {"status": "unconfigured", "lastCheckedAt": datetime.now(UTC)}, merge=True
         )
         return 0
-    database = firestore_client()
     updated = 0
     # Entries use id:district:state. The operator must supply the district IDs
     # from IMD's official API list; unknown regions are never shown locally.
@@ -240,7 +248,7 @@ async def ingest_imd(settings: Settings) -> int:
                 updated += 1
     database.collection("ingestionState").document("imd").set(
         {"status": "ok", "truncated": False, "lastCheckedAt": datetime.now(UTC),
-         "districtsConfigured": len(entries)}, merge=True
+         "districtsConfigured": len(entries), "storedCount": updated}, merge=True
     )
     return updated
 

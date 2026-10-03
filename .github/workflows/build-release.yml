@@ -20,9 +20,6 @@ name: Build ResQ Mobile Releases
 # See the secret names referenced below (Settings -> Secrets and variables -> Actions).
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
   workflow_dispatch:
     inputs:
       release_tag:
@@ -33,7 +30,7 @@ on:
       release_name:
         description: "Release name"
         required: true
-        default: "ResQ Mobile Build"
+        default: "ResQ v1.0.0"
 
 permissions:
   contents: read

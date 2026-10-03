@@ -1,4 +1,4 @@
-"""Fail scheduled run when safety jobs or official feeds are stale."""
+"""Check manual maintenance status and request-driven feed freshness."""
 
 from datetime import UTC, datetime, timedelta
 

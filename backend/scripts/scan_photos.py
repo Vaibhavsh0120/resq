@@ -1,4 +1,4 @@
-"""Scheduled malware screening. Requires clamscan and Firebase/Cloudinary secrets."""
+"""Manual malware screening. Requires clamscan and Firebase/Cloudinary secrets."""
 
 from __future__ import annotations
 

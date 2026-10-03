@@ -94,6 +94,8 @@ class AppTheme {
         letterSpacing: -1.8,
         color: foreground,
       ),
+      displayMedium: base.displayMedium?.copyWith(color: foreground),
+      displaySmall: base.displaySmall?.copyWith(color: foreground),
       headlineLarge: base.headlineLarge?.copyWith(
         fontWeight: FontWeight.w700,
         letterSpacing: -1,
@@ -117,6 +119,10 @@ class AppTheme {
         fontWeight: FontWeight.w700,
         color: foreground,
       ),
+      titleSmall: base.titleSmall?.copyWith(
+        fontWeight: FontWeight.w700,
+        color: foreground,
+      ),
       bodyLarge: base.bodyLarge?.copyWith(color: foreground, height: 1.5),
       bodyMedium: base.bodyMedium?.copyWith(color: foreground, height: 1.5),
       bodySmall: base.bodySmall?.copyWith(color: muted, height: 1.45),
@@ -128,6 +134,7 @@ class AppTheme {
         fontWeight: FontWeight.w700,
         color: muted,
       ),
+      labelSmall: base.labelSmall?.copyWith(color: muted),
     );
   }
 

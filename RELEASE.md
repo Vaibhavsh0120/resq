@@ -13,7 +13,7 @@ unavailable; the app exposes 112 calling and manual SMS separately.
 | FastAPI | Vercel Hobby | <https://resq-api.vercel.app/v1/health> |
 | Assistant text | Gemini API free tier | `gemini-3.1-flash-lite`, called by FastAPI |
 | Private report photos | Cloudinary Free | `dhthlaknh`, called by FastAPI |
-| Scheduled operations | GitHub Actions free allowance | `.github/workflows/operations.yml` |
+| Manual maintenance and release builds | GitHub Actions free allowance | `operations.yml`, `build-release.yml` |
 
 The web and mobile clients call Firebase Auth and Firestore directly under
 Firestore rules. They send Firebase ID tokens to FastAPI for privileged
@@ -38,9 +38,15 @@ encrypted values; empty strings in that export do not prove the deployed
 variables are empty. Its OIDC token is short lived and should not be shared.
 
 GitHub Actions needs repository secrets `RESQ_FIREBASE_SERVICE_ACCOUNT_JSON`
-and `RESQ_CLOUDINARY_URL` for scheduled jobs, plus repository variable
+and `RESQ_CLOUDINARY_URL` for manual maintenance, plus repository variable
 `RESQ_API_BASE_URL=https://resq-api.vercel.app` for release builds. Inspect a
-manual `ResQ Best-Effort Operations` run before relying on its schedule.
+manual `ResQ Manual Maintenance` run when screening photos or retrying safety delivery.
+No workflow runs on a schedule, push, or pull request. Updates triggers bounded
+feed refreshes at most every 30 minutes globally; failed attempts back off for
+five minutes and preserve still-relevant cached records. Physical cleanup occurs
+on refresh/manual maintenance; expired records are excluded from reads immediately.
+Check-in reminders, pending SOS retries, photo screening, and stored-asset deletion
+are operator-triggered. Photo access still ends after 30 days at the API.
 Optional `RESQ_IMD_DISTRICT_IDS` requires official IMD access and verified IDs;
 without them IMD is unconfigured. NDMA SACHET RSS is the default feed.
 
@@ -59,6 +65,13 @@ site. The API deployment uses `backend/pyproject.toml` and `backend/vercel.json`
 CLI authentication must be the operator's account. Cloudinary and Gemini free
 allowances have limits; monitor usage and stop optional features at exhaustion.
 
+The web pilot uses the durable inbox only; no Web Push key is generated.
+APNs credentials are absent, so iOS push is not configured. The unsigned IPA
+is a build artifact, not an installable App Store/TestFlight release.
+Invite links use Firebase Hosting. Native automatic link opening needs the
+matching Android signing fingerprints and Apple team association files;
+the HTTPS links work in the web app without those associations.
+
 ## Verification and release
 
 1. Run `python -m pytest -q` in `backend`, `npm run test:rules` and
@@ -73,17 +86,17 @@ allowances have limits; monitor usage and stop optional features at exhaustion.
    offline state, report moderation and expiry, official feed age, and push on
    actual devices before claiming those flows are validated. An FCM send
    acceptance does not prove delivery or reading.
-5. Check the GitHub scheduled workflow and quota dashboards. Operations are
-   best effort: GitHub schedules can run late, and Vercel Hobby functions are
-   bounded in duration. Do not claim guaranteed emergency delivery.
+5. Run manual maintenance and inspect source/job health and quota dashboards.
+   Vercel Hobby functions have bounded duration. No timer-driven work or
+   guaranteed emergency delivery is configured.
 
 The `Build ResQ Mobile Releases` workflow builds release artifacts on a
-version tag. Its unsigned iOS artifact needs device signing before use. Do not
+manual dispatch. Its unsigned iOS artifact needs device signing before use. Do not
 acknowledge device tests that did not happen.
 
 ## Rollback
 
 Re-deploy the prior known-good Vercel deployment and Firebase Hosting version,
-then review Firestore rules before reverting them. Keep scheduled photo expiry
-and safety retries running during rollback. Record affected features, commit
+then review Firestore rules before reverting them. Run manual photo cleanup
+and safety retries during rollback. Record affected features, commit
 SHAs, and any pending SOS inbox or photo deletion work.
