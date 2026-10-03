@@ -16,7 +16,7 @@ settings = get_settings()
 logger = logging.getLogger("resq.api")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 _request_windows: dict[str, deque[float]] = defaultdict(deque)
-app = FastAPI(title="ResQ API", version="0.1.0")
+app = FastAPI(title="ResQ API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

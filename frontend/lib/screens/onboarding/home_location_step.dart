@@ -14,15 +14,12 @@ import '../../widgets/primary_button.dart';
 
 /// Onboarding Step 4 — Home Location.
 ///
-/// Captures both GPS coordinates (for a future mini-map / distance-to-help
-/// feature) and a human-written address (for anyone who has to read it
-/// aloud or dispatch help to it) — the two aren't redundant, they serve
-/// different future features.
+/// Captures coordinates for map coverage and nearby help, plus an address the
+/// user can read aloud when requesting assistance.
 ///
 /// Map: `flutter_map` rendering free OpenStreetMap raster tiles — no API
 /// key, no billing account, just a `userAgentPackageName` per OSM's usage
-/// policy (see `docs/architecture.md` for why this was chosen over Google
-/// Maps / Mapbox).
+/// policy. See `frontend/docs/architecture.md` for the service boundaries.
 class HomeLocationStep extends StatefulWidget {
   const HomeLocationStep({
     super.key,

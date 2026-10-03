@@ -1,101 +1,89 @@
-# ResQ architecture
+# ResQ v1.0.0 architecture
 
-## Current milestone
+## Application boundaries
 
-The current app has four clear boundaries:
+- `lib/app/` owns the GoRouter routes, Riverpod providers and adaptive app shell.
+- `lib/routing/` gates authentication and resumable onboarding. Registered users
+  complete their profile; anonymous Emergency access goes directly to Home.
+- `lib/screens/`, `models/` and `services/` contain the shared auth/onboarding
+  flow, profile data, theme, locale and platform services.
+- `lib/features/` groups Home, Updates, SOS, Family, reports, places, readiness,
+  notifications, assistant, profile and administration. Each feature owns its
+  models, repository/API boundary, providers and presentation as needed.
+- `lib/widgets/` and `theme/` contain the shared visual components. Maps use
+  OpenStreetMap through `flutter_map`, with visible credits below the tiles.
 
-1. **Presentation** — responsive screens and reusable widgets under `screens/`
-   and `widgets/`.
-2. **Application flow** — the authentication/onboarding gate in `routing/`.
-3. **Data and platform services** — Firebase Auth, Firestore profiles, theme
-   persistence, and platform detection under `services/`.
-4. **Domain data** — typed onboarding/profile values under `models/`.
+## Services and requests
 
-Firebase Auth is the source of truth for session state. For registered users,
-`users/{uid}` is the source of truth for onboarding progress. Anonymous emergency
-sessions deliberately skip profile creation and onboarding.
+Firebase Hosting serves Flutter web. Firebase Authentication issues ID tokens.
+Client repositories read/write permitted Firestore paths under `firestore.rules`.
+For privileged work, the client sends its ID token to FastAPI on Vercel, which
+verifies it and uses Firebase Admin, Gemini or Cloudinary. Provider secrets are
+backend-only. Anonymous guests have limited emergency and assistant access.
 
-This architecture is appropriate for the present auth milestone: screens do not
-talk to Firebase directly, shared behavior is centralized, and the UI is not tied
-to a specific phone width.
+The assistant streams text from Gemini and stores registered users' conversations
+in Firestore. Retrieval filters private context by ownership and consent. Voice
+uses device speech recognition and text-to-speech with the same text API.
+Reports remain private; photos use authenticated Cloudinary delivery, a manual
+malware scan and moderation before a sanitized public projection is published.
 
-## Growth path
+## Firestore ownership
 
-Do not continue adding every future feature to the global `screens`, `models`, and
-`services` folders. As ResQ grows, use feature modules:
+| Path | Access boundary |
+| --- | --- |
+| `users/{uid}` | Registered owner profile and onboarding; no client listing |
+| `users/{uid}/settings`, `readiness`, `emergencyContacts` | Registered owner reads/writes |
+| `users/{uid}/notifications` | Backend creates; owner reads, marks read or deletes |
+| `householdCircles/{circleId}` and members/check-ins | Accepted members read; backend manages writes |
+| `circleInvites/{inviteId}` | Backend invitation and acceptance only |
+| `locationShares/{shareId}` | Consented, expiring shares between accepted members |
+| `sosEvents/{eventId}` | Owner and explicitly authorized accepted Circle members |
+| `incidentReports/{reportId}` | Registered submitting owner reads; backend writes |
+| `conversations/{id}` and messages | Registered owner reads; backend writes |
+| `publicAlerts`, `emergencyEvents`, `safePlaces`, `guidance`, `verifiedReports` | Signed-in readers, including guests; backend writes |
+| `indiaEvents`, `ingestionState`, devices and quota records | Backend only |
 
-```text
-lib/
-  app/                 app bootstrap, navigation, theme
-  core/                shared UI, failures, platform adapters
-  features/
-    auth/
-    onboarding/
-    sos/
-    preparedness/
-    guidance/
-    incidents/
-    family_circle/
-    safe_places/
-```
+The checked-in rules are authoritative. Unrecognized collections are denied.
+Onboarding Family contacts are private contact records, migrated into the contact
+list. They do not grant household Circle membership; invitations require explicit
+acceptance through the backend.
 
-Each feature should own its presentation, domain models, and repository interface.
-Firebase implementations should sit behind repositories so emulator tests and
-future backend changes do not require screen rewrites. Adopt a larger state/router
-package only when deep links, background SOS flows, or independently nested
-navigation make the current small gate insufficient.
+## Alerts and maintenance
 
-## Firestore boundaries
+Nearby uses official NDMA SACHET alerts matching the saved home region. Its map
+marker identifies coverage at home, not an invented disaster location. Across
+India uses India-impacting GDACS events at published coordinates. Cards expose
+sources and freshness and remain usable if tiles fail. GDACS events disappear
+seven days after their published end; expired local alerts are excluded as well.
 
-Keep highly sensitive data private by default and avoid one giant user document.
-Recommended future collection ownership:
+Updates requests trigger feed refreshes under a Firestore compare-and-swap lease:
+at most every 30 minutes globally, five-minute failure backoff, bounded network
+and database calls. Still-relevant cached events survive an upstream failure.
+Expired data is excluded from reads immediately and purged on refresh/maintenance.
 
-```text
-users/{uid}                         private profile and onboarding state
-users/{uid}/readiness/{itemId}      private checklist state
-sosEvents/{eventId}                 owner plus explicitly authorized participants
-familyInvites/{inviteId}            sender and intended recipient only
-familyCircles/{circleId}/members/*  accepted members only
-locationShares/{shareId}            short-lived, consented access only
-incidentReports/{reportId}          create by user; moderated public projection
-publicAlerts/{alertId}               server/admin writes; authenticated reads
-safePlaces/{placeId}                 server/admin writes; authenticated reads
-guidance/{guideId}                   server/admin writes; client reads
-```
+The two GitHub workflows are manual: release builds with quality checks, and
+operator maintenance for feed ingestion, reminders, pending SOS retries, photo
+scanning/deletion and health. There is no scheduler. The web release uses its
+Firestore inbox; no browser push credential or messaging worker is configured.
 
-SOS fan-out, public alerts, invitation acceptance, moderation, and authorization
-claims should be enforced by trusted server code (Cloud Functions or another
-backend), not by trusting fields submitted by a client.
+## Repository and cost boundaries
 
-## Safety and privacy rules
+Source, tests, dependency lockfiles, native platform projects, public Firebase
+client configuration, configuration examples and useful documentation are tracked.
+Local environments, generated artifacts, test data, identities and plaintext
+credentials are ignored. `backend/.env.age` is an encrypted operator backup;
+it is excluded from deployment uploads and is never loaded by the application.
 
-- Deny by default; add one collection-specific rule at a time.
-- Never make medical information, home coordinates, phone numbers, or live
-  locations publicly queryable.
-- Use expiring grants for location sharing and store server timestamps.
-- Require an explicit accept step before family membership grants access.
-- Add Firebase App Check before exposing report creation or other abuse-prone
-  endpoints.
-- Keep emergency access functional when account onboarding is unavailable.
-- Treat device permissions as optional and preserve manual fallbacks.
+Hosting/Auth/Firestore use Firebase Spark, the API uses Vercel Hobby, photos use
+Cloudinary Free, and Gemini uses its free allowance. No credit card or billing
+account was added. Quota exhaustion and unavailable services require usable error
+states and manual emergency fallbacks. Public OSM tiles have usage limits.
 
-## Cost guardrail
+## Verification boundaries
 
-The default architecture must work without a billing account or credit card.
-
-- Prefer Firebase products available on the Spark plan and design for their free
-  quotas.
-- Do not add Cloud Functions, paid Google Maps APIs, paid AI APIs, or another
-  billing-enabled backend without explicit approval and a free alternative review.
-- Keep maps provider-agnostic. The onboarding preview currently uses
-  OpenStreetMap without an API key; cache responsibly and follow the public tile
-  usage policy. A high-traffic production deployment would need a suitable free
-  tile host or self-hosting plan rather than abusing the public tile service.
-- Treat quota exhaustion as a normal failure mode: Emergency access and locally
-  available guidance must degrade safely rather than becoming unusable.
-
-## Testing expectations
-
-Every milestone should pass `flutter analyze`, `flutter test`, a web release build,
-and an Android build. Add Firebase Emulator Suite rule tests before introducing
-cross-user reads/writes such as family invitations or SOS sharing.
+The release workflow checks backend tests, Flutter analysis/tests and Firestore
+rule tests, then builds web, Android APK/AAB and an unsigned iOS IPA. Production
+checks use disposable accounts for Circle/inbox SOS, private report moderation,
+Gemini streaming/history and account deletion. Physical calling, SMS, voice, push
+and signed iOS installation require actual device checks. See the root
+[release guide](../../RELEASE.md) and [privacy notice](../../PRIVACY.md).

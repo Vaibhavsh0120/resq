@@ -10,11 +10,9 @@ import '../../widgets/primary_button.dart';
 
 /// Onboarding Step 3 — Family Circle.
 ///
-/// Stores each added member on *this user's own* document only — no invite
-/// is sent yet. This models the future "family member accepts and links
-/// accounts" feature (see `docs/architecture.md`) without building it this
-/// session: the shape (name, relationship, phone, emergency-contact flag)
-/// is exactly what an invite-send step will need later.
+/// Stores private emergency contacts on the user's profile. The Family feature
+/// migrates them to its contact list. Household Circle invitations and acceptance
+/// are separate actions after onboarding.
 class FamilyCircleStep extends StatefulWidget {
   const FamilyCircleStep({
     super.key,

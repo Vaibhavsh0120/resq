@@ -9,18 +9,20 @@ $RepositoryRoot = Split-Path -Parent $PSScriptRoot
 $FrontendRoot = Join-Path $RepositoryRoot "frontend"
 $BackendRoot = Join-Path $RepositoryRoot "backend"
 
-$env:FIREBASE_PROJECT_ID = "resq-106ed"
-$env:FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099"
-$env:FIRESTORE_EMULATOR_HOST = "127.0.0.1:8081"
-
-$firebase = Start-Process -FilePath "npx.cmd" -ArgumentList @(
-  "--yes", "firebase-tools@15.30.1", "emulators:start",
-  "--only", "auth,firestore", "--project", "resq-106ed"
-) -WorkingDirectory $FrontendRoot -WindowStyle Hidden -PassThru
-
-$backend = Start-Process -FilePath "python.exe" -ArgumentList @(
-  "-m", "uvicorn", "app.main:app", "--reload", "--host", "127.0.0.1", "--port", "8080"
-) -WorkingDirectory $BackendRoot -WindowStyle Hidden -PassThru
+$localEnvironment = @{
+  APP_ENV = "development"
+  ALLOWED_ORIGINS = "http://localhost:5000,http://127.0.0.1:5000"
+  FIREBASE_PROJECT_ID = "resq-106ed"
+  FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099"
+  FIRESTORE_EMULATOR_HOST = "127.0.0.1:8081"
+}
+$previousEnvironment = @{}
+foreach ($name in $localEnvironment.Keys) {
+  $previousEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
+  [Environment]::SetEnvironmentVariable($name, $localEnvironment[$name], "Process")
+}
+$firebase = $null
+$backend = $null
 
 function Wait-TcpPort([int]$Port, [string]$Name) {
   for ($attempt = 0; $attempt -lt 60; $attempt++) {
@@ -39,11 +41,22 @@ function Wait-TcpPort([int]$Port, [string]$Name) {
 }
 
 try {
+  $firebase = Start-Process -FilePath "npx.cmd" -ArgumentList @(
+    "--yes", "firebase-tools@15.30.1", "emulators:start",
+    "--only", "auth,firestore", "--project", "resq-106ed"
+  ) -WorkingDirectory $FrontendRoot -WindowStyle Hidden -PassThru
+
+  $backend = Start-Process -FilePath "python.exe" -ArgumentList @(
+    "-m", "uvicorn", "app.main:app", "--env-file", ".env.example",
+    "--reload", "--host", "127.0.0.1", "--port", "8080"
+  ) -WorkingDirectory $BackendRoot -WindowStyle Hidden -PassThru
+
   Wait-TcpPort -Port 8081 -Name "Firestore emulator"
   Wait-TcpPort -Port 9099 -Name "Auth emulator"
   Wait-TcpPort -Port 8080 -Name "FastAPI"
   if ($Seed) {
     & python (Join-Path $BackendRoot "scripts/seed_dev.py") --project resq-106ed
+    if ($LASTEXITCODE -ne 0) { throw "Emulator seed failed." }
   }
   Push-Location $FrontendRoot
   try {
@@ -52,10 +65,14 @@ try {
     } else {
       & flutter run -d chrome --web-port 5000 --dart-define-from-file=config/local.web.json
     }
+    if ($LASTEXITCODE -ne 0) { throw "Flutter exited with code $LASTEXITCODE." }
   } finally {
     Pop-Location
   }
 } finally {
-  Stop-Process -Id $backend.Id -Force -ErrorAction SilentlyContinue
-  Stop-Process -Id $firebase.Id -Force -ErrorAction SilentlyContinue
+  if ($backend) { Stop-Process -Id $backend.Id -Force -ErrorAction SilentlyContinue }
+  if ($firebase) { Stop-Process -Id $firebase.Id -Force -ErrorAction SilentlyContinue }
+  foreach ($name in $previousEnvironment.Keys) {
+    [Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], "Process")
+  }
 }

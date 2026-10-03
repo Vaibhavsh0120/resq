@@ -138,10 +138,9 @@ class MedicalInfo {
   }
 }
 
-/// A single Family Circle member, as recorded by the *inviting* user this
-/// session — no invite is actually sent yet (see `docs/architecture.md`
-/// for the planned `familyInvites` collection that will link
-/// this to the invitee's own account once that feature is built).
+/// A private contact recorded during onboarding. The Family feature migrates
+/// these entries to emergency contacts; accepted household Circle membership
+/// is managed separately through backend invitations.
 class FamilyMember {
   const FamilyMember({
     required this.id,

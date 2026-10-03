@@ -8,10 +8,9 @@ nearby safe places from one application.
 > ResQ is a best-effort hackathon pilot. It is not a replacement for local
 > emergency services, professional medical advice, or official government alerts.
 
-## Current milestone
+## v1.0.0
 
-This repository now contains a connected Flutter safety-app foundation and a
-FastAPI service:
+This release contains the Flutter safety app and its FastAPI service:
 
 - Light, dark, and system themes using the Precision Light visual language
 - Theme-aware startup video on Android and iOS; tap anywhere to skip
@@ -87,7 +86,7 @@ Desktop users should run the responsive web version.
 ```text
 frontend/                  Flutter application and Firebase client project
   assets/videos/           Light and dark startup videos
-  docs/architecture.md     Architecture and future data-boundary guidance
+  docs/architecture.md     Current architecture and data boundaries
   lib/                     Application source
   test/                    Flutter and Firestore rules tests
   android/                 Android platform project
@@ -97,9 +96,12 @@ frontend/                  Flutter application and Firebase client project
   firestore.indexes.json   Firestore index configuration
   firebase.json            Firebase CLI project configuration
 backend/                   FastAPI service workspace
+  .env.age                 Encrypted operator environment backup
+.github/workflows/         Manual mobile release and maintenance jobs
+scripts/run-local.ps1      Windows emulator development launcher
 ```
 
-For architectural boundaries and the recommended future feature-module layout,
+For current architectural boundaries and the feature-module layout,
 read [frontend/docs/architecture.md](frontend/docs/architecture.md).
 
 ## Prerequisites
@@ -131,7 +133,7 @@ be produced locally from Windows or Linux.
 Clone the repository and install packages:
 
 ```shell
-git clone <repository-url>
+git clone https://github.com/Vaibhavsh0120/resq.git
 cd resq/frontend
 flutter pub get
 ```
@@ -147,14 +149,10 @@ Both commands should complete without errors.
 
 ### Push-notification development
 
-Android notification permission, the web messaging service worker, and the iOS
-Push Notifications/Background Modes entitlements are included.
-For web push, create a Web Push certificate in Firebase and pass its public VAPID
-key at build or run time:
-
-```shell
-flutter run -d chrome --dart-define=RESQ_FCM_VAPID_KEY=<public-vapid-key>
-```
+Android notification permission and the iOS Push Notifications/Background Modes
+entitlements are included. The web release uses its notification inbox only;
+it ships no Firebase messaging worker or VAPID key. Adding web push later requires
+both a messaging worker and a public VAPID key.
 
 The app registers device tokens only after a registered user explicitly enables
 push alerts. Before distributing iOS builds, create an APNs authentication key in
@@ -186,11 +184,31 @@ These files contain public project identifiers and are safe to commit. They do n
 grant administrative access. Never commit a Firebase Admin SDK service-account
 JSON file, private key, signing key, `.env` file, or provisioning profile.
 
-Private local files can be backed up to Git only after encrypting them with the
-project's age recipient. See [note.md](note.md) for the recipient, corrected
-PowerShell helpers, restore instructions, and the list of files that should or
-should not be encrypted. Commit `.env.age`, never `.env`, and never commit the age
-private identity.
+Private local files can be backed up to Git after encrypting them with age.
+The tracked [backend/.env.age](backend/.env.age) contains the operator environment
+encrypted for this public recipient:
+
+```text
+age19ml0m6z9prakmc2jfhtpu4d8gn8kyn7t3g2td79gl30l7cs97qsqspu45g
+```
+
+Run these commands from the repository root after changing the local environment:
+
+```powershell
+$env:AGE_PUBLIC_KEY = "age19ml0m6z9prakmc2jfhtpu4d8gn8kyn7t3g2td79gl30l7cs97qsqspu45g"
+age -r $env:AGE_PUBLIC_KEY -o backend/.env.age backend/.env
+```
+
+To restore it on the operator's Windows machine:
+
+```powershell
+age --decrypt -i "D:\Dev\Secrets\age\master-age-key.txt" -o backend/.env backend/.env.age
+```
+
+Keep the private identity outside the repository. Commit only ciphertext; the
+plaintext `.env`, Admin SDK JSON, signing material, and private identity remain
+ignored. The app's public Firebase client configuration stays readable. Vercel
+receives secrets through its encrypted environment variables, not this backup.
 
 A collaborator needs Firebase console access only to inspect configuration, deploy
 rules, or manage Authentication. Running the app does not require console access.
@@ -286,6 +304,11 @@ The app opens at `http://localhost:5000`, FastAPI listens on
 emulator, use `-Target android`; its configuration uses `10.0.2.2` to reach the
 Windows host.
 
+The launcher loads `backend/.env.example` for the emulator service and overrides
+the local web origin. It restores its process environment on exit. The production
+operator `.env` stays separate; local reports use disk storage and AI is disabled
+unless provider credentials are explicitly supplied through process variables.
+
 The checked-in frontend files under `frontend/config/` contain public runtime
 switches only. Flutter reads them with `--dart-define-from-file`. Release CI
 creates the production JSON file from GitHub variables with
@@ -374,9 +397,12 @@ Anonymous guest            → Home directly
 ## Firestore
 
 Private onboarding data is stored in `users/{firebaseAuthUid}`. The checked-in
-rules enforce owner-only access, prevent profile listing, reject unknown top-level
-fields, deny anonymous profile access, and deny every future collection until
-feature-specific rules are added.
+rules enforce owner-only profiles, settings, contacts, readiness and inbox access;
+they prevent profile listing and anonymous profile access. Circle membership,
+check-ins and SOS records have explicit participant checks. Verified public safety
+content is readable in Emergency access. Privileged writes use the backend, and
+unrecognized collections are denied. See [firestore.rules](frontend/firestore.rules)
+for the complete policy.
 
 Validate the rules with the local emulator:
 
@@ -494,13 +520,16 @@ For Android-affecting changes, also run:
 flutter build apk --debug
 ```
 
-Never commit `build/`, `.dart_tool/`, IDE state, Firebase emulator output, signing
-files, service-account credentials, or environment files. `.gitignore` covers these
-categories.
+Keep source, tests, dependency lockfiles, platform projects, public Firebase client
+configuration, runtime configuration examples and user/operator documentation in
+Git. Keep generated builds, caches, IDE state, emulator output, test accounts,
+plaintext secrets and signing identities local. `.gitignore` covers these files;
+`backend/.env.age` is the explicit encrypted-backup exception and `.vercelignore`
+also excludes it from API deployments.
 
 ## Contributing
 
 Keep changes scoped and testable. New features should follow the feature-module
-direction in [docs/architecture.md](docs/architecture.md), preserve Emergency
+direction in [frontend/docs/architecture.md](frontend/docs/architecture.md), preserve Emergency
 access, remain responsive across phone and wide layouts, and include
 collection-specific Firestore rules before adding new data paths.

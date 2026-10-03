@@ -86,6 +86,8 @@ firebase-export-*/
 serviceAccountKey.json
 credentials.json
 **/.local/
+**/.vercel/
+.superpowers/
 *.pem
 *.p8
 *.p12

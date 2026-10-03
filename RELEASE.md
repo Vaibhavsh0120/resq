@@ -37,6 +37,11 @@ testing. The Vercel `resq-api` project holds encrypted Production variables:
 encrypted values; empty strings in that export do not prove the deployed
 variables are empty. Its OIDC token is short lived and should not be shared.
 
+`backend/.env.age` is the encrypted backup for the operator's age recipient.
+The README describes encryption and restoration. The private identity and
+plaintext file stay local; the backup is excluded from Vercel uploads. A local
+health response reports `local`; the deployment supplies its Git commit marker.
+
 GitHub Actions needs repository secrets `RESQ_FIREBASE_SERVICE_ACCOUNT_JSON`
 and `RESQ_CLOUDINARY_URL` for manual maintenance, plus repository variable
 `RESQ_API_BASE_URL=https://resq-api.vercel.app` for release builds. Inspect a
@@ -54,7 +59,8 @@ To deploy the current source manually from `main`:
 
 ```powershell
 cd backend
-vercel --prod --yes
+$resqCommit = git rev-parse HEAD
+vercel --prod --yes --env "RESQ_RELEASE_COMMIT=$resqCommit"
 cd ..\frontend
 flutter build web --release --dart-define=RESQ_APP_ENV=production --dart-define=RESQ_API_BASE_URL=https://resq-api.vercel.app
 firebase deploy --project resq-106ed --only firestore:rules,firestore:indexes,hosting
