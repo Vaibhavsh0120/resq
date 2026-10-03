@@ -198,39 +198,40 @@ class _HomeLocationStepState extends State<HomeLocationStep> {
             ),
             child: Stack(
               children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: center,
-                    initialZoom: hasCoords ? 16 : 4,
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-                    ),
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.vaibhav.resq',
-                      maxZoom: 19,
-                    ),
-                    if (hasCoords)
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: center,
-                            width: 40,
-                            height: 40,
-                            child: Icon(
-                              Icons.location_on,
-                              color: Theme.of(context).colorScheme.error,
-                              size: 40,
-                            ),
-                          ),
-                        ],
+                OsmCreditedMap(
+                  child: FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: center,
+                      initialZoom: hasCoords ? 16 : 4,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                       ),
-                    const OsmMapAttribution(),
-                  ],
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.vaibhav.resq',
+                        maxZoom: 19,
+                      ),
+                      if (hasCoords)
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: center,
+                              width: 40,
+                              height: 40,
+                              child: Icon(
+                                Icons.location_on,
+                                color: Theme.of(context).colorScheme.error,
+                                size: 40,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
                 if (!hasCoords && !_isLocating)
                   Positioned.fill(

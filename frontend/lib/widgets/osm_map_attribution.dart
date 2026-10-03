@@ -1,39 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Keep the OSM licence visible even when the map is not being touched.
+/// Keep the licence adjacent to the map without covering its tiles or markers.
+class OsmCreditedMap extends StatelessWidget {
+  const OsmCreditedMap({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      Expanded(child: child),
+      const OsmMapAttribution(),
+    ],
+  );
+}
+
 class OsmMapAttribution extends StatelessWidget {
   const OsmMapAttribution({super.key});
 
   @override
   Widget build(BuildContext context) => Align(
-    alignment: Alignment.bottomRight,
-    child: Padding(
-      padding: const EdgeInsets.all(4),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 230),
-        child: Material(
-          color: Colors.white.withValues(alpha: .94),
-          borderRadius: BorderRadius.circular(4),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(4),
-            onTap: () => launchUrl(Uri.parse('https://www.openstreetmap.org/copyright')),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Center(
-                  child: Text(
-                    '© OpenStreetMap contributors',
-                    softWrap: true,
-                    style: TextStyle(color: Colors.black87, fontSize: 11),
-                  ),
-                ),
-              ),
-            ),
-          ),
+    alignment: Alignment.centerRight,
+    heightFactor: 1,
+    child: TextButton(
+      onPressed: () =>
+          launchUrl(Uri.parse('https://www.openstreetmap.org/copyright')),
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        textStyle: const TextStyle(
+          fontSize: 12,
+          decoration: TextDecoration.underline,
         ),
       ),
+      child: const Text('© OpenStreetMap contributors'),
     ),
   );
 }

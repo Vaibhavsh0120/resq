@@ -117,27 +117,29 @@ class UpdatesMap extends StatelessWidget {
                 ),
               ),
             )
-          : FlutterMap(
-              key: ValueKey(isNearby ? 'nearby-map' : 'india-map'),
-              options: MapOptions(
-                initialCenter: center,
-                initialZoom: isNearby ? 9 : 4,
-                interactionOptions: InteractionOptions(
-                  flags: wide
-                      ? InteractiveFlag.all & ~InteractiveFlag.scrollWheelZoom
-                      : InteractiveFlag.pinchZoom |
-                            InteractiveFlag.pinchMove |
-                            InteractiveFlag.doubleTapZoom,
+          : OsmCreditedMap(
+              child: FlutterMap(
+                key: ValueKey(isNearby ? 'nearby-map' : 'india-map'),
+                options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: isNearby ? 9 : 4,
+                  interactionOptions: InteractionOptions(
+                    flags: wide
+                        ? InteractiveFlag.all & ~InteractiveFlag.scrollWheelZoom
+                        : InteractiveFlag.pinchZoom |
+                              InteractiveFlag.pinchMove |
+                              InteractiveFlag.doubleTapZoom,
+                  ),
                 ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.vaibhav.resq',
+                  ),
+                  MarkerLayer(markers: markers),
+                ],
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.vaibhav.resq',
-                ),
-                MarkerLayer(markers: markers),
-                const OsmMapAttribution(),
-              ],
             ),
     );
   }

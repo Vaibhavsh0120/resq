@@ -41,35 +41,37 @@ class PlaceDetailScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
             clipBehavior: Clip.antiAlias,
-            child: FlutterMap(
-              options: MapOptions(
-                initialCenter: LatLng(place.latitude, place.longitude),
-                initialZoom: 15,
-                interactionOptions: const InteractionOptions(
-                  flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+            child: OsmCreditedMap(
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: LatLng(place.latitude, place.longitude),
+                  initialZoom: 15,
+                  interactionOptions: const InteractionOptions(
+                    flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                  ),
                 ),
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.vaibhav.resq',
-                ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: LatLng(place.latitude, place.longitude),
-                      width: 48,
-                      height: 48,
-                      child: const Icon(
-                        Icons.location_on_rounded,
-                        color: AppColors.emergency,
-                        size: 44,
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.vaibhav.resq',
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: LatLng(place.latitude, place.longitude),
+                        width: 48,
+                        height: 48,
+                        child: const Icon(
+                          Icons.location_on_rounded,
+                          color: AppColors.emergency,
+                          size: 44,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const OsmMapAttribution(),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),

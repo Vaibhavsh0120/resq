@@ -46,6 +46,7 @@ home district/state and marks coverage at home; **Across India** shows disaster
 events from the Global Disaster Awareness and Coordination System (GDACS) at
 published coordinates. Both have matching cards, source links, and freshness
 labels. GDACS events disappear seven days after their published end date.
+Map credits appear in a compact row below the tiles, keeping markers unobscured.
 Opening Updates refreshes cached feeds when due, at most once per 30 minutes
 globally, with bounded requests and a five-minute failure backoff.
 The web pilot uses the notification inbox only, as requested; Web Push is not

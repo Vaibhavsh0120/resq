@@ -121,32 +121,34 @@ class _MapSummary extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: latitude != null && longitude != null
-          ? FlutterMap(
-              options: MapOptions(
-                initialCenter: LatLng(latitude!, longitude!),
-                initialZoom: 13,
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.vaibhav.resq',
+          ? OsmCreditedMap(
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: LatLng(latitude!, longitude!),
+                  initialZoom: 13,
                 ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: LatLng(latitude!, longitude!),
-                      width: 44,
-                      height: 44,
-                      child: const Icon(
-                        Icons.my_location_rounded,
-                        color: AppColors.emergency,
-                        size: 34,
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.vaibhav.resq',
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: LatLng(latitude!, longitude!),
+                        width: 44,
+                        height: 44,
+                        child: const Icon(
+                          Icons.my_location_rounded,
+                          color: AppColors.emergency,
+                          size: 34,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const OsmMapAttribution(),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             )
           : Center(
               child: Column(
