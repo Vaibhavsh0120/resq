@@ -73,6 +73,10 @@ try {
   if ($backend) { Stop-Process -Id $backend.Id -Force -ErrorAction SilentlyContinue }
   if ($firebase) { Stop-Process -Id $firebase.Id -Force -ErrorAction SilentlyContinue }
   foreach ($name in $previousEnvironment.Keys) {
-    [Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], "Process")
+    if ($null -eq $previousEnvironment[$name]) {
+      Remove-Item -LiteralPath ("Env:" + $name) -ErrorAction SilentlyContinue
+    } else {
+      [Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], "Process")
+    }
   }
 }
