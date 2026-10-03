@@ -108,7 +108,12 @@ async def _cached_get(client: httpx.AsyncClient, database, state_id: str, url: s
     state_ref = database.collection("ingestionState").document(state_id)
     previous = state_ref.get().to_dict() or {}
     headers = {"If-None-Match": previous["etag"]} if previous.get("etag") else {}
-    response = await client.get(url, headers=headers)
+    try:
+        response = await client.get(url, headers=headers)
+    except httpx.RemoteProtocolError:
+        # SACHET can close a reused connection before sending its response.
+        # Only this idempotent GET is retried once; the caller's deadline still applies.
+        response = await client.get(url, headers={**headers, "Connection": "close"})
     now = datetime.now(UTC)
     if response.status_code == 304:
         cached = previous.get("cachedXml")

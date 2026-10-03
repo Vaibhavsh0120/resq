@@ -2,6 +2,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 
 from app.integrations.official_alerts import _cached_get, _imd_severity, _imd_warning_text, matches_region, parse_cap
 
@@ -64,3 +65,42 @@ def test_sachet_304_uses_cached_xml_and_etag() -> None:
     content, changed = asyncio.run(fetch())
     assert content == b"<alert/>"
     assert changed is False
+
+
+@pytest.mark.parametrize("disconnects", [1, 2])
+def test_sachet_protocol_disconnect_retry_is_bounded(disconnects):
+    calls = []
+
+    class Cache:
+        def collection(self, name):
+            return self
+
+        def document(self, name):
+            return self
+
+        def get(self):
+            return self
+
+        def to_dict(self):
+            return {"etag": '"abc"', "cachedXml": "<alert/>"}
+
+        def set(self, data, merge=False):
+            assert data["status"] == "ok"
+
+    def respond(request):
+        calls.append(request)
+        if len(calls) <= disconnects:
+            raise httpx.RemoteProtocolError("Server disconnected", request=request)
+        assert request.headers["If-None-Match"] == '"abc"'
+        return httpx.Response(304)
+
+    async def fetch():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+            return await _cached_get(client, Cache(), "cap-test", "https://sachet.ndma.gov.in/test")
+
+    if disconnects == 1:
+        assert asyncio.run(fetch()) == (b"<alert/>", False)
+    else:
+        with pytest.raises(httpx.RemoteProtocolError):
+            asyncio.run(fetch())
+    assert len(calls) == 2
