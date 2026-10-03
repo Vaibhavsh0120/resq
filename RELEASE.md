@@ -62,6 +62,9 @@ firebase deploy --project resq-106ed --only firestore:rules,firestore:indexes,ho
 
 The Firebase deployment uses `frontend/firebase.json` and its explicit Hosting
 site. The API deployment uses `backend/pyproject.toml` and `backend/vercel.json`.
+Hosting revalidates app files on each visit to prevent stale releases. A browser
+that cached a pre-release build under the former one-hour policy may need one
+hard refresh after this upgrade.
 CLI authentication must be the operator's account. Cloudinary and Gemini free
 allowances have limits; monitor usage and stop optional features at exhaustion.
 

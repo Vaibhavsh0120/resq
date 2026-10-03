@@ -54,6 +54,9 @@ def claim_refresh(database, source: str, *, now=None):
     now = now or datetime.now(UTC)
     if any(state.get(key) and state[key] > now for key in ('refreshLeaseUntil', 'nextRefreshAt')):
         return None
+    checked = state.get('lastCheckedAt')
+    if state.get('status') == 'ok' and isinstance(checked, datetime) and now - checked < timedelta(minutes=30):
+        return None
     lease = {'refreshLeaseUntil': now + timedelta(minutes=2)}
     try:
         if snapshot.exists:

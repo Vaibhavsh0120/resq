@@ -59,6 +59,14 @@ def test_refresh_failure_keeps_cache_and_allows_bounded_retry(monkeypatch):
     assert 240 < (ref.data['nextRefreshAt'] - datetime.now(UTC)).total_seconds() <= 300
 
 
+def test_fresh_manual_feed_is_reused_without_duplicate_ingestion():
+    now = datetime.now(UTC)
+    ref = Ref()
+    ref.data = {'status': 'ok', 'lastCheckedAt': now - timedelta(minutes=5)}
+    assert feed_refresh.claim_refresh(Database(ref), 'gdacs', now=now) is None
+    assert 'refreshLeaseUntil' not in ref.data
+
+
 def test_firestore_refresh_calls_have_rpc_deadline_and_no_unbounded_retry():
     class Rpc:
         def get(self, *, timeout, retry):
